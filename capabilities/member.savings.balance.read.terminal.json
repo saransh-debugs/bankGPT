@@ -1,0 +1,218 @@
+{
+  "id": "member.savings.balance.read",
+  "version": "1.0.0",
+  "schemaVersion": "1.0",
+  "name": "Read a member's savings balance (terminal)",
+  "description": "Look up a member by id on the Member Services inquiry panel and return their name, status, savings account number and current balance.",
+  "product": "northridge/terminal",
+  "productVersion": "MBR001",
+  "surface": "terminal",
+  "recordedForTenant": "northridge",
+  "approvalState": "approved",
+
+  "inputs": [
+    {
+      "name": "memberId",
+      "type": "string",
+      "required": true,
+      "description": "The member's identifier as keyed into the MEMBER ID field.",
+      "example": "12345"
+    }
+  ],
+
+  "outputs": [
+    { "name": "memberName", "type": "string", "from": "nameValue", "description": "Member's name as displayed." },
+    { "name": "status", "type": "string", "from": "statusValue", "description": "Account status, e.g. ACTIVE or DORMANT." },
+    { "name": "savingsAccount", "type": "string", "from": "acctValue", "description": "Savings account number." },
+    { "name": "savingsBalance", "type": "money", "from": "balanceValue", "description": "Current savings balance." }
+  ],
+
+  "steps": [
+    {
+      "id": "key-member-id",
+      "action": "fill",
+      "value": "{{inputs.memberId}}",
+      "reversibility": "safe",
+      "target": {
+        "anchor": { "kind": "label", "text": "MEMBER ID" },
+        "relation": "next-writable",
+        "rationale": "The caption 'MEMBER ID' is the panel's own label for this entry field and is the most stable thing on the screen: it is part of the panel definition, so it survives host upgrades and record changes. 'next-writable' then selects the first UNPROTECTED field after it, which on a block-mode grid is precisely the field an operator would type into. No coordinate is stored, so the field can move without breaking this step.",
+        "description": "MEMBER ID entry field"
+      },
+      "precondition": {
+        "type": "present",
+        "target": {
+          "anchor": { "kind": "landmark", "text": "MEMBER SERVICES" },
+          "relation": "is",
+          "rationale": "Refuse to type into whatever screen happens to be showing. The panel title is asserted first so that if the session has dropped to a sign-on panel, we fail with precondition-failed having touched nothing, rather than keying a member id into a password field.",
+          "description": "Member Services panel title"
+        }
+      },
+      "checkpoint": {
+        "type": "present",
+        "target": {
+          "anchor": { "kind": "param", "name": "memberId" },
+          "relation": "is",
+          "rationale": "Confirms the value actually landed in the field, by anchoring on the RUNTIME parameter value rather than on a literal. Block-mode entry is local, so nothing is transmitted yet — this verifies the local buffer rather than assuming the keystrokes took.",
+          "description": "the keyed member id, echoed on screen"
+        }
+      }
+    },
+    {
+      "id": "transmit-inquiry",
+      "action": "press",
+      "key": "Enter",
+      "reversibility": "safe",
+      "timeoutMs": 20000,
+      "checkpoint": {
+        "type": "text",
+        "text": "INQUIRY COMPLETE",
+        "match": "exact",
+        "target": {
+          "anchor": { "kind": "label", "text": "MSG" },
+          "relation": "next-value",
+          "rationale": "The message subfile on line 24 is the host's own statement of what happened, and is the same signal a human operator reads to know an inquiry succeeded. Asserting it is stronger than asserting a balance is merely present, because a stale balance from a previous inquiry would satisfy the latter.",
+          "description": "message line"
+        }
+      }
+    },
+    {
+      "id": "read-name",
+      "action": "read",
+      "bindTo": "nameValue",
+      "reversibility": "safe",
+      "target": {
+        "anchor": { "kind": "label", "text": "NAME" },
+        "relation": "next-value",
+        "rationale": "'next-value' takes the first PROTECTED (host-written) field after the caption, which is what a display field is on this surface. Using next-value rather than next-writable is what distinguishes reading a rendered value from finding an input.",
+        "description": "NAME display field"
+      }
+    },
+    {
+      "id": "read-status",
+      "action": "read",
+      "bindTo": "statusValue",
+      "reversibility": "safe",
+      "target": {
+        "anchor": { "kind": "label", "text": "STATUS" },
+        "relation": "next-value",
+        "rationale": "Same anchoring as the other display fields. 'STATUS' appears once on this panel; were it repeated, resolution would halt with anchor-ambiguous rather than guess.",
+        "description": "STATUS display field"
+      }
+    },
+    {
+      "id": "read-account",
+      "action": "read",
+      "bindTo": "acctValue",
+      "reversibility": "safe",
+      "target": {
+        "anchor": { "kind": "label", "text": "SAVINGS ACCT" },
+        "relation": "next-value",
+        "rationale": "The caption is stored as the human-meaningful literal 'SAVINGS ACCT'; dot-leader and case normalisation match it against the panel's 'SAVINGS ACCT  . . '. The same stored literal would match a web label reading 'Savings Acct:'.",
+        "description": "SAVINGS ACCT display field"
+      }
+    },
+    {
+      "id": "read-balance",
+      "action": "read",
+      "bindTo": "balanceValue",
+      "reversibility": "safe",
+      "target": {
+        "anchor": { "kind": "label", "text": "BALANCE" },
+        "relation": "next-value",
+        "rationale": "Anchored on the caption beside the figure rather than on its position, because a balance's column shifts with field width while its label does not. This is the value the capability exists to return, so it is read explicitly rather than inferred from the success condition.",
+        "description": "BALANCE display field"
+      }
+    }
+  ],
+
+  "successCondition": {
+    "type": "all",
+    "of": [
+      {
+        "type": "text",
+        "text": "INQUIRY COMPLETE",
+        "match": "exact",
+        "target": {
+          "anchor": { "kind": "label", "text": "MSG" },
+          "relation": "next-value",
+          "rationale": "The host's own completion signal. Asserted again at the end so success is defined by what the application says, not by whether our steps happened to run without throwing.",
+          "description": "message line"
+        }
+      },
+      {
+        "type": "text",
+        "text": "\\S",
+        "match": "regex",
+        "target": {
+          "anchor": { "kind": "label", "text": "BALANCE" },
+          "relation": "next-value",
+          "rationale": "A balance field that resolves but is blank means the panel rendered without data. Requiring at least one non-space character distinguishes 'read an empty field' from 'read a value', which a presence check alone cannot.",
+          "description": "BALANCE display field"
+        }
+      }
+    ]
+  },
+
+  "outcomes": [
+    {
+      "code": "MEMBER_NOT_FOUND",
+      "description": "No member exists with the supplied id. A legitimate answer the caller needs, not a failure.",
+      "terminal": true,
+      "afterStep": "transmit-inquiry",
+      "when": {
+        "type": "text",
+        "text": "MEMBER NOT FOUND",
+        "match": "exact",
+        "target": {
+          "anchor": { "kind": "label", "text": "MSG" },
+          "relation": "next-value",
+          "rationale": "Declared in advance and detected from the host's own message line, so the caller receives a machine-readable code instead of having to interpret a checkpoint failure.",
+          "description": "message line"
+        }
+      }
+    },
+    {
+      "code": "NOT_AUTHORIZED",
+      "description": "The signed-on profile may not view this member's record.",
+      "terminal": true,
+      "afterStep": "transmit-inquiry",
+      "when": {
+        "type": "text",
+        "text": "NOT AUTHORIZED",
+        "match": "exact",
+        "target": {
+          "anchor": { "kind": "label", "text": "MSG" },
+          "relation": "next-value",
+          "rationale": "An authorisation refusal is a real answer about entitlement, distinct from the automation being broken. Conflating the two would send an operator hunting for a bug that does not exist.",
+          "description": "message line"
+        }
+      }
+    },
+    {
+      "code": "SESSION_EXPIRED",
+      "description": "The host dropped the session and swapped in the sign-on panel mid-flow.",
+      "terminal": true,
+      "afterStep": "transmit-inquiry",
+      "when": {
+        "type": "present",
+        "target": {
+          "anchor": { "kind": "landmark", "text": "SIGN ON" },
+          "relation": "is",
+          "rationale": "Detected by the arrival of a DIFFERENT panel rather than by the absence of the expected one, which is the more specific signal. Declared terminal here; a recovery policy that re-authenticates, or an escalation to a human, is the follow-on treatment.",
+          "description": "Sign On panel title"
+        }
+      }
+    }
+  ],
+
+  "recoveries": [],
+  "maxReversibility": "safe",
+
+  "metadata": {
+    "recordedAt": "2026-08-13T00:00:00.000Z",
+    "recordedBy": "hand-authored",
+    "goalPrompt": "look up member 12345 and read their current savings balance",
+    "discoveryEvidence": "evidence/README.md#hand-authored-fixture"
+  }
+}

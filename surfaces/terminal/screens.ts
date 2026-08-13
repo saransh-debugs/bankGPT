@@ -80,7 +80,7 @@ const MBR001 = [
   '                                                                                ',
   '                                                                                ',
   ' F3=Exit   F5=Refresh   F12=Cancel                                              ',
-  ' MSG:                                                                           ',
+  ' MSG: ______________________________________________________________________   ',
 ];
 
 /**
@@ -113,7 +113,7 @@ const SEC001 = [
   '                                                                                ',
   '                                                                                ',
   ' F3=Exit                                                                        ',
-  ' MSG: SESSION EXPIRED                                                           ',
+  ' MSG: ______________________________________________________________________   ',
 ];
 
 /**
@@ -178,8 +178,10 @@ export interface HostState {
   cursor: { row: number; col: number };
 }
 
-const MBR001_FIELDS = ['memberIdInput', 'nameOut', 'statusOut', 'acctOut', 'balanceOut'];
-const SEC001_FIELDS = ['userInput', 'passwordInput'];
+// Order matters: scanTemplate assigns these in scan order (row by row, left to
+// right), so `msgOut` is last because the message subfile sits on line 24.
+const MBR001_FIELDS = ['memberIdInput', 'nameOut', 'statusOut', 'acctOut', 'balanceOut', 'msgOut'];
+const SEC001_FIELDS = ['userInput', 'passwordInput', 'msgOut'];
 
 /**
  * Position of a host-side named field. The TEMPLATE owns field coordinates, so
@@ -236,16 +238,16 @@ export function render(state: HostState): ScreenBuffer {
     if (!f.protected) {
       const v = state.input.get(`${f.row}:${f.col}`);
       if (v !== undefined) write(f.row, f.col, f.length, v);
+    } else if (f.name === 'msgOut') {
+      // The message subfile is a real protected FIELD, not decorative text, so
+      // an artifact can anchor on the "MSG" caption and read its value — which
+      // is how a green-screen operator knows whether an inquiry completed.
+      write(f.row, f.col, f.length, state.message);
     } else if (f.name !== undefined) {
       const v = state.display.get(f.name);
       if (v !== undefined) write(f.row, f.col, f.length, v);
     }
   }
-
-  // Message subfile on line 24.
-  const msgRow = ROWS - 1;
-  const prefix = ' MSG: ';
-  plane[msgRow] = (prefix + state.message).padEnd(COLS, ' ').slice(0, COLS);
 
   return {
     screenId: state.screen,

@@ -8,10 +8,12 @@
 #     docker.io/library/fineract, which does not exist. It expects you to have
 #     run `./gradlew :fineract-provider:jibDockerBuild` first.
 #
-# Both published images below ARE real and arm64-native:
-#   apache/fineract:latest    (multi-arch)
-#   openmf/web-app:dev        (arm64) -- NOT :master, which is amd64-only and
-#                             stale since 2025-03. There is no :latest tag.
+# Both published images below ARE real and multi-arch (amd64 + arm64), so this
+# stack is portable across Intel and Apple Silicon hosts:
+#   apache/fineract:latest
+#   openmf/web-app:dev        -- NOT :master, which is stale (last pushed
+#                             2025-03) and whose manifest does not resolve.
+#                             There is no :latest tag for the web app.
 #
 # Env var names and values are taken verbatim from
 #   apache/fineract  config/docker/env/{fineract-common,fineract-postgresql,postgresql}.env
