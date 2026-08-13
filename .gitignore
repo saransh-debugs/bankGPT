@@ -1,0 +1,30 @@
+# --- MUST NOT be published -----------------------------------------------------
+# This repo is submitted publicly. These two are deliberately excluded:
+#   HANDOFF.md  internal strategy notes, including a competitive analysis of
+#               other candidates' published submissions. Publishing it would be
+#               both inappropriate and irrelevant to the work being assessed.
+#   the brief   interface.ai's own document; not ours to redistribute.
+HANDOFF.md
+Assignment*.pdf
+
+node_modules/
+dist/
+*.log
+
+# Secrets never enter the repo. See .env.example for the shape.
+.env
+.env.local
+
+# Playwright
+/test-results/
+/playwright-report/
+.playwright/
+
+# Local-only scratch. Committed evidence lives in evidence/ and IS tracked.
+/tmp/
+/.scratch/
+
+# Postgres volume snapshots (large binaries, reproducible via npm run seed)
+/docker/snapshots/
+
+.DS_Store

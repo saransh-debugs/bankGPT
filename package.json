@@ -1,0 +1,47 @@
+{
+  "name": "bankgpt-computer-use",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Discover a UI flow with an LLM, compile it into a typed versioned capability, then replay it deterministically with no model in the decision loop.",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "up": "docker compose -f docker/compose.yml up -d",
+    "down": "docker compose -f docker/compose.yml down",
+    "reset": "docker compose -f docker/compose.yml down -v",
+    "logs": "docker compose -f docker/compose.yml logs -f fineract",
+    "wait-ready": "tsx scripts/wait-ready.ts",
+    "seed": "tsx scripts/seed.ts",
+    "snapshot": "tsx scripts/snapshot.ts",
+    "capture-fixtures": "tsx scripts/capture-fixtures.ts",
+    "validate": "tsx src/cli.ts validate",
+    "discover": "tsx src/cli.ts discover",
+    "replay": "tsx src/cli.ts replay",
+    "verify": "tsx src/cli.ts verify",
+    "stability": "tsx src/cli.ts stability",
+    "approve": "tsx src/cli.ts approve",
+    "catalog": "tsx src/cli.ts catalog",
+    "operator": "tsx src/cli.ts operator",
+    "terminal": "tsx surfaces/terminal/app.ts",
+    "evidence:verify": "tsx src/evidence/verify.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.70.0",
+    "playwright": "^1.56.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  },
+  "optionalDependencies": {
+    "node-pty": "^1.0.0"
+  }
+}

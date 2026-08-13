@@ -1,0 +1,130 @@
+# Hand-rolled Fineract + Mifos X stack.
+#
+# WHY THIS FILE EXISTS: neither upstream compose file works as published.
+#   - openMF/web-app's docker-compose.yml declares ONE service, builds Angular
+#     from source, and ships no backend and no database.
+#   - apache/fineract's config/docker/compose/fineract.yml sets
+#     `image: fineract:latest` — unqualified, so it resolves to
+#     docker.io/library/fineract, which does not exist. It expects you to have
+#     run `./gradlew :fineract-provider:jibDockerBuild` first.
+#
+# Both published images below ARE real and arm64-native:
+#   apache/fineract:latest    (multi-arch)
+#   openmf/web-app:dev        (arm64) -- NOT :master, which is amd64-only and
+#                             stale since 2025-03. There is no :latest tag.
+#
+# Env var names and values are taken verbatim from
+#   apache/fineract  config/docker/env/{fineract-common,fineract-postgresql,postgresql}.env
+#   openMF/web-app   docker-compose.yml
+# so this stays faithful to what upstream actually tests.
+#
+# First boot runs several hundred Liquibase migrations and is SILENT for
+# 10-15 minutes. An out-of-memory kill mid-migration leaves a corrupt database.
+# Give Docker Desktop >= 6 GB / 4 CPU, then `npm run snapshot` so you never
+# pay for this twice.
+
+name: bankgpt
+
+services:
+  # Service MUST be named `db`: upstream's canonical JDBC URL is
+  # jdbc:postgresql://db:5432/fineract_tenants and FINERACT_DEFAULT_TENANTDB_HOSTNAME=db.
+  db:
+    image: postgres:16-alpine
+    container_name: bankgpt-db
+    restart: unless-stopped
+    environment:
+      # Superuser. Upstream uses `root`; the init script runs as this user.
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: skdcnwauicn2ucnaecasdsajdnizucawencascdca
+      POSTGRES_DB: root
+      # Consumed by initdb/01-init.sh to create Fineract's own role + databases.
+      FINERACT_DB_USER: postgres
+      FINERACT_DB_PASS: skdcnwauicn2ucnaecasdsajdnizucawencascdca
+      FINERACT_TENANTS_DB_NAME: fineract_tenants
+      FINERACT_TENANT_DEFAULT_DB_NAME: fineract_default
+    volumes:
+      - ./initdb/01-init.sh:/docker-entrypoint-initdb.d/01-init.sh:ro
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-q", "-d", "root", "-U", "root"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+    ports:
+      - "5432:5432"
+
+  fineract:
+    image: apache/fineract:latest
+    container_name: bankgpt-fineract
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # --- connection pool to the tenants registry database ---
+      FINERACT_HIKARI_DRIVER_SOURCE_CLASS_NAME: org.postgresql.Driver
+      FINERACT_HIKARI_JDBC_URL: jdbc:postgresql://db:5432/fineract_tenants
+      FINERACT_HIKARI_USERNAME: postgres
+      FINERACT_HIKARI_PASSWORD: skdcnwauicn2ucnaecasdsajdnizucawencascdca
+      # --- the `default` tenant's own database ---
+      FINERACT_DEFAULT_TENANTDB_HOSTNAME: db
+      FINERACT_DEFAULT_TENANTDB_PORT: 5432
+      FINERACT_DEFAULT_TENANTDB_UID: postgres
+      FINERACT_DEFAULT_TENANTDB_PWD: skdcnwauicn2ucnaecasdsajdnizucawencascdca
+      FINERACT_DEFAULT_TENANTDB_NAME: fineract_default
+      FINERACT_DEFAULT_TENANTDB_IDENTIFIER: default
+      FINERACT_DEFAULT_TENANTDB_DESCRIPTION: Northridge CU (default tenant)
+      # Upstream defaults this to Asia/Kolkata. Deterministic replay compares
+      # dates, so pin it: an artifact recorded under one zone must not read
+      # differently under another.
+      FINERACT_DEFAULT_TENANTDB_TIMEZONE: UTC
+      # TLS stays ON (upstream default). The Mifos web app's own default API URL
+      # is https://localhost:8443, so disabling it would mean re-pointing the
+      # front end. The cert is self-signed -> Playwright needs
+      # ignoreHTTPSErrors, curl needs -k. Both are handled in code.
+      FINERACT_SERVER_SSL_ENABLED: "true"
+      FINERACT_SERVER_PORT: 8443
+      JAVA_TOOL_OPTIONS: "-Xms512m -Xmx2g"
+    ports:
+      - "8443:8443"
+    # Upstream's healthcheck is a bare `nc -z` loop, which reports healthy as
+    # soon as the port binds -- well before the API serves requests. We keep the
+    # cheap in-container check (the image has sh + nc but not curl) and do the
+    # REAL readiness gate from the host against
+    # /fineract-provider/actuator/health in scripts/wait-ready.ts.
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8443 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 90
+      start_period: 30s
+
+  web-app:
+    image: openmf/web-app:dev
+    container_name: bankgpt-web-app
+    restart: unless-stopped
+    depends_on:
+      - fineract
+    environment:
+      # Resolved by the BROWSER on the host, not from inside this container,
+      # so localhost is correct here.
+      FINERACT_API_URLS: https://localhost:8443
+      FINERACT_API_URL: https://localhost:8443
+      FINERACT_API_PROVIDER: /fineract-provider/api
+      FINERACT_API_VERSION: /v1
+      FINERACT_PLATFORM_TENANT_IDENTIFIER: default
+      # Real, verified switches used to induce genuine runtime conditions.
+      # es-MX is in the supported list, so the locale-drift demo is the
+      # product's own i18n rather than anything we inject.
+      MIFOS_DEFAULT_LANGUAGE: ${MIFOS_DEFAULT_LANGUAGE:-en-US}
+      MIFOS_SUPPORTED_LANGUAGES: cs-CS,de-DE,en-US,es-MX,es-CL,fr-FR,it-IT,ko-KO,lt-LT,lv-LV,ne-NE,pt-PT,sw-SW
+      # Default is 300000 (5 min). Override to 15000 to force a real
+      # idle-session expiry mid-replay.
+      MIFOS_SESSION_IDLE_TIMEOUT: ${MIFOS_SESSION_IDLE_TIMEOUT:-300000}
+      MIFOS_OAUTH_SERVER_ENABLED: "false"
+    ports:
+      - "4200:80"
+
+volumes:
+  pgdata:
+    name: bankgpt-pgdata

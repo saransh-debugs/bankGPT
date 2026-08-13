@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    // exactOptionalPropertyTypes is deliberately OFF. Zod's `.optional()`
+    // widens to `T | undefined` rather than emitting `?: T`, so the flag
+    // conflicts with every optional field on the recursive types that must be
+    // hand-declared for z.lazy (Target.scope, Condition.of). The schema's real
+    // guarantees come from runtime validation, which is what actually guards
+    // artifacts loaded from disk; trading it for compile-time friction here
+    // would buy nothing.
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "noEmit": true,
+    "sourceMap": true
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts", "surfaces/**/*.ts"]
+}
