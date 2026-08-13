@@ -1,0 +1,32 @@
+{
+  "seededAt": "2026-08-13T21:09:37.310Z",
+  "baseUrl": "https://localhost:8443",
+  "tenant": "default",
+  "productId": 1,
+  "members": [
+    {
+      "clientId": 1,
+      "name": "Janet Okonkwo",
+      "accountNo": "000000001",
+      "balance": 4250
+    },
+    {
+      "clientId": 2,
+      "name": "Marcus Reyes",
+      "accountNo": "000000002",
+      "balance": 812.44
+    },
+    {
+      "clientId": 3,
+      "name": "Priya Natarajan",
+      "accountNo": "000000003",
+      "balance": 15004.19
+    },
+    {
+      "clientId": 4,
+      "name": "Tobias Ferreira",
+      "accountNo": "000000004",
+      "balance": 1200
+    }
+  ]
+}
