@@ -11,28 +11,60 @@
  *   2  usage / load error
  */
 
-import { readdir, readFile } from 'node:fs/promises';
+import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Capability, lintCapability } from './schema/capability.js';
 import { TenantOverride, overrideRatio, FORK_THRESHOLD } from './schema/override.js';
 import { describeResult, exitCodeFor } from './schema/result.js';
 import { TerminalAdapter } from './adapter/terminal.js';
+import { WebAdapter } from './adapter/web.js';
+import { gateFor } from './policy/gate.js';
+import { buildRedactor, loadPolicy } from './policy/redact.js';
 import type { SurfaceAdapter } from './adapter/surface.js';
 import { replay } from './replay/engine.js';
+import { discover } from './discover/loop.js';
+import { compile } from './discover/compile.js';
+import { fileOperatorChannel, listPending, release } from './operator/channel.js';
 
 const CAPABILITY_DIR = 'capabilities';
+
+/**
+ * Load .env if present, so `redact: true` steps and `{{env.*}}` templates
+ * resolve on the documented demo path without the operator exporting anything
+ * by hand. Uses the runtime's own loader rather than a dependency; a missing
+ * file is not an error, because the terminal surface needs no configuration at
+ * all and should stay runnable with nothing set up.
+ *
+ * Values already in the environment win — process.loadEnvFile does not
+ * overwrite them — which keeps CI and one-off overrides working.
+ */
+function loadDotEnv(): void {
+  try {
+    process.loadEnvFile('.env');
+  } catch {
+    /* no .env is fine */
+  }
+}
 
 function usage(): never {
   process.stderr.write(
     [
       'usage:',
       '  validate [dir]                          parse and lint every capability',
-      '  replay <file> [--key value ...]         replay a capability',
+      '  discover --goal "..." [--surface web] [--entry <url>]',
+      '                                          LLM-driven recording -> draft capability',
+      '  replay <file> [--key value ...]         replay a capability, no model',
+      '  approve <file> [--by name]              draft -> approved',
+      '  operator [list]                         parked interventions awaiting a human',
+      '  operator release <id> --by <name>       hand control back to automation',
       '',
       'replay options:',
       '  --tenant <name>        tenant to replay as (default: as recorded)',
       '  --override <file>      apply a tenant override',
       '  --attended             a human is watching (permits irreversible drafts)',
+      '  --headed               web only: show the browser (handoff demo mode)',
+      '  --escalate             bring a human in when stuck, instead of failing',
+      '  --operator-dir <dir>   where intervention requests are exchanged',
       '  --evidence <dir>       where to write evidence',
       '  --<param> <value>      any capability input parameter',
       '',
@@ -189,16 +221,44 @@ async function cmdReplay(file: string, flags: Record<string, string | true>): Pr
   const tenant = typeof flags.tenant === 'string' ? flags.tenant : (override?.tenant ?? cap.recordedForTenant);
   const evidenceDir = typeof flags.evidence === 'string' ? flags.evidence : undefined;
 
+  // Policy and redaction are constructed HERE and injected into the adapter,
+  // so the adapter owes nothing to a policy module and a test can substitute
+  // its own. Both are built before the surface is opened: a run that could not
+  // load its allowlist must not start, rather than start unguarded.
+  const policy = loadPolicy();
+  const redact = buildRedactor(policy.redaction);
+
   let adapter: SurfaceAdapter;
   if (cap.surface === 'terminal') {
     const t = new TerminalAdapter({
       evidenceDir: evidenceDir ?? join('evidence', 'scratch'),
-      ...(typeof flags['expire-after'] === 'string'
-        ? { env: { TERM_EXPIRE_AFTER_AIDS: flags['expire-after'] } }
-        : {}),
+      gate: gateFor('terminal', policy),
+      redact,
+      // The host is BRANDED per institution, the way a real 5250 shop runs one
+      // vendor panel with its own text constants. Replaying `--tenant summit`
+      // therefore has to bring up Summit's panel, or the lexicon would be
+      // translating captions that were never on screen and the demo would prove
+      // nothing.
+      env: {
+        ...(typeof flags['expire-after'] === 'string'
+          ? { TERM_EXPIRE_AFTER_AIDS: flags['expire-after'] }
+          : {}),
+        TERM_TENANT: tenant,
+      },
     });
     await t.start();
     adapter = t;
+  } else if (cap.surface === 'web') {
+    const w = new WebAdapter({
+      evidenceDir: evidenceDir ?? join('evidence', 'scratch'),
+      gate: gateFor('web', policy),
+      redact,
+      // Headed is the handoff mode: the operator takes over THIS window, not a
+      // second browser pointed at the same app.
+      headed: flags.headed === true,
+    });
+    await w.start();
+    adapter = w;
   } else {
     process.stderr.write(`surface '${cap.surface}' has no adapter wired into the CLI yet\n`);
     return 2;
@@ -212,6 +272,25 @@ async function cmdReplay(file: string, flags: Record<string, string | true>): Pr
       tenant,
       ...(override === undefined ? {} : { override }),
       attended: flags.attended === true,
+      escalateOnStuck: flags.escalate === true,
+      // With --escalate but no channel the engine PARKS and returns a resumable
+      // intervention (exit 4). Supplying a channel makes it wait for a person.
+      ...(flags.escalate === true && flags['operator-dir'] !== undefined
+        ? {
+            escalate: fileOperatorChannel({
+              dir: String(flags['operator-dir']),
+              redact,
+              onWaiting: (req, path) => {
+                process.stdout.write(
+                  `\n  ⏸  PARKED at step '${req.stepId}': ${req.reason}\n` +
+                    `     the session is still open — take it over, then:\n` +
+                    `     npm run operator -- release ${req.interventionId} --by "your name"\n` +
+                    `     request: ${path}\n\n`,
+                );
+              },
+            }),
+          }
+        : {}),
       ...(evidenceDir === undefined ? {} : { evidenceDir }),
     });
 
@@ -233,7 +312,222 @@ async function cmdReplay(file: string, flags: Record<string, string | true>): Pr
   }
 }
 
+/**
+ * THE ONE COMMAND WITH A MODEL IN IT.
+ *
+ * Everything else in this CLI is deterministic. This is the recording step:
+ * an LLM drives the live surface until it reaches the goal, the run is written
+ * to /evidence/discovery/ as evidence, and the trace is compiled into a DRAFT
+ * capability that can then be replayed with no model at all.
+ */
+async function cmdDiscover(flags: Record<string, string | true>): Promise<number> {
+  const goal = typeof flags.goal === 'string' ? flags.goal : undefined;
+  if (goal === undefined) {
+    process.stderr.write(`discover requires --goal "<what to accomplish>"\n`);
+    return 2;
+  }
+  const surface = (typeof flags.surface === 'string' ? flags.surface : 'web') as 'web' | 'terminal';
+
+  const policy = loadPolicy();
+  const redact = buildRedactor(policy.redaction);
+  const evidenceDir = typeof flags.evidence === 'string' ? flags.evidence : join('evidence', 'discovery');
+
+  // Sample values the run is driven with. Any flag that is not a known option
+  // is treated as a parameter, so `--memberId 000000001` needs no declaration
+  // ahead of a capability existing to declare it.
+  const RESERVED = new Set(['goal', 'surface', 'evidence', 'out', 'id', 'tenant', 'headed', 'max-steps', 'model', 'entry']);
+  const inputs: Record<string, string> = {};
+  for (const [k, v] of Object.entries(flags)) {
+    if (!RESERVED.has(k) && typeof v === 'string') inputs[k] = v;
+  }
+
+  let adapter: SurfaceAdapter;
+  if (surface === 'terminal') {
+    const t = new TerminalAdapter({ evidenceDir, gate: gateFor('terminal', policy), redact });
+    await t.start();
+    adapter = t;
+  } else {
+    const w = new WebAdapter({
+      evidenceDir,
+      gate: gateFor('web', policy),
+      redact,
+      headed: flags.headed === true,
+    });
+    await w.start();
+    adapter = w;
+  }
+
+  try {
+    // The brief's input is a goal AND a target entry point. For web that
+    // defaults to the configured app URL, so the common case needs no flag;
+    // the terminal host has no address at all and correctly gets none.
+    const entryUrl =
+      typeof flags.entry === 'string'
+        ? flags.entry
+        : surface === 'web'
+          ? (process.env.WEB_APP_URL ?? 'http://localhost:4200')
+          : undefined;
+
+    const trace = await discover({
+      goal,
+      adapter,
+      inputs,
+      evidenceDir,
+      redact,
+      ...(entryUrl === undefined ? {} : { entryUrl }),
+      // Tell the agent what it may reach. Left to discover it, it guesses a
+      // relative URL, gets refused, and reads that as a broken application.
+      ...(policy.surfaces?.[surface]?.allowedOrigins
+        ? { allowedOrigins: policy.surfaces[surface]!.allowedOrigins! }
+        : {}),
+      ...(policy.surfaces?.[surface]?.credentialEnvVars
+        ? { credentialEnvVars: policy.surfaces[surface]!.credentialEnvVars! }
+        : {}),
+      ...(typeof flags.model === 'string' ? { model: flags.model } : {}),
+      ...(typeof flags['max-steps'] === 'string' ? { maxSteps: Number(flags['max-steps']) } : {}),
+    });
+
+    process.stdout.write(
+      `\ndiscovery ${trace.outcome} after ${trace.entries.length} steps, ${trace.modelCalls} model calls\n` +
+        `  evidence: ${evidenceDir}/\n`,
+    );
+    if (trace.reason) process.stdout.write(`  reason: ${trace.reason}\n`);
+    if (trace.outcome !== 'goal-met') return 1;
+
+    const id = typeof flags.id === 'string' ? flags.id : 'discovered.capability';
+    const capability = compile(trace, {
+      id,
+      product: surface === 'web' ? 'openmf/web-app' : 'northridge/terminal',
+      tenant: typeof flags.tenant === 'string' ? flags.tenant : 'default',
+      // Passed so the compiler can REFUSE rather than warn if a literal
+      // credential made it into a step.
+      secrets: (policy.redaction?.secretEnvVars ?? [])
+        .map((n) => process.env[n])
+        .filter((v): v is string => typeof v === 'string' && v.length > 0),
+    });
+
+    const out =
+      typeof flags.out === 'string' ? flags.out : join(CAPABILITY_DIR, `${id}.${surface}.draft.json`);
+    await writeFile(out, JSON.stringify(capability, null, 2) + '\n', 'utf8');
+
+    const lint = lintCapability(capability);
+    process.stdout.write(`  compiled -> ${out} (${capability.steps.length} steps, ${capability.approvalState})\n`);
+    for (const l of lint) process.stdout.write(`    warn: ${l.message}\n`);
+    process.stdout.write(
+      `\nThis is a DRAFT: a model wrote it and no human has reviewed it.\n` +
+        `Replay it, read the rationales, then: npm run approve -- ${out}\n`,
+    );
+    return 0;
+  } finally {
+    await adapter.close();
+  }
+}
+
+/**
+ * The draft -> approved gate.
+ *
+ * Approval is a human act, so it records WHO. The engine refuses unattended
+ * replay of an irreversible capability that is still a draft, which is what
+ * makes this more than a label.
+ */
+async function cmdApprove(file: string, flags: Record<string, string | true>): Promise<number> {
+  const cap = await loadCapability(file);
+  if (cap.approvalState === 'approved') {
+    process.stdout.write(`${cap.id}@${cap.version} is already approved\n`);
+    return 0;
+  }
+
+  const lint = lintCapability(cap);
+
+  // Lint is advisory for a SAFE capability — a read-only flow with an
+  // unverified step is a review note. It is not advisory for an irreversible
+  // one: approving that is what permits unattended replay, and a step whose
+  // success is unverified means the run cannot tell whether the irreversible
+  // thing happened. That combination needs a human to say so explicitly.
+  if (cap.maxReversibility === 'irreversible' && lint.length > 0 && flags.force !== true) {
+    process.stderr.write(
+      `refusing to approve ${cap.id}@${cap.version}: it is '${cap.maxReversibility}' and has ` +
+        `${lint.length} unresolved review warning(s):\n`,
+    );
+    for (const l of lint) process.stderr.write(`  ${l.message}\n`);
+    process.stderr.write(`\nFix them, or approve deliberately with --force.\n`);
+    return 2;
+  }
+
+  const by = typeof flags.by === 'string' ? flags.by : (process.env.USER ?? 'unknown');
+  const approved: Capability = {
+    ...cap,
+    approvalState: 'approved',
+    metadata: { ...cap.metadata, approvedBy: by, approvedAt: new Date().toISOString() },
+  };
+  await writeFile(file, JSON.stringify(approved, null, 2) + '\n', 'utf8');
+
+  process.stdout.write(`approved ${cap.id}@${cap.version} (${cap.maxReversibility}) by ${by}\n`);
+  for (const l of lint) process.stdout.write(`  warn: ${l.message}\n`);
+  return 0;
+}
+
+/**
+ * THE OPERATOR SURFACE.
+ *
+ * A bare CLI over the intervention directory, which is what the brief permits:
+ * the handoff mechanism and the control-transfer model are real, the console is
+ * not. A human takes over the SAME live session — the headed browser or the
+ * terminal host the run already has open — and releases it here.
+ */
+async function cmdOperator(
+  positional: string[],
+  flags: Record<string, string | true>,
+): Promise<number> {
+  const dir = typeof flags['operator-dir'] === 'string' ? flags['operator-dir'] : 'evidence/interventions';
+  const sub = positional[1] ?? 'list';
+
+  if (sub === 'list') {
+    const pending = await listPending(dir);
+    if (pending.length === 0) {
+      process.stdout.write(`no parked interventions in ${dir}\n`);
+      return 0;
+    }
+    for (const p of pending) {
+      process.stdout.write(
+        `${p.interventionId}  ${p.capabilityId}@${p.capabilityVersion}\n` +
+          `  step:      ${p.stepId}\n` +
+          `  reason:    ${p.reason}\n` +
+          `  session:   ${p.sessionId}   (still open — take it over)\n` +
+          `  requested: ${p.requestedAt}\n` +
+          `  screen:    ${p.snapshotPath}\n\n`,
+      );
+    }
+    process.stdout.write(`${pending.length} awaiting a human. Release with:\n`);
+    process.stdout.write(`  npm run operator -- release <id> --by "your name"\n`);
+    return 0;
+  }
+
+  if (sub === 'release') {
+    const id = positional[2];
+    if (id === undefined) {
+      process.stderr.write('operator release <interventionId> --by <name>\n');
+      return 2;
+    }
+    // Attribution is required, not defaulted: releasing a paused banking
+    // session is a deliberate act by a named person.
+    const by = typeof flags.by === 'string' ? flags.by : undefined;
+    if (by === undefined) {
+      process.stderr.write('--by <name> is required: a release must be attributable\n');
+      return 2;
+    }
+    const rec = await release(dir, id, by, typeof flags.note === 'string' ? flags.note : undefined);
+    process.stdout.write(`released ${rec.interventionId} by ${rec.operatorId} at ${rec.releasedAt}\n`);
+    process.stdout.write(`the run will re-observe and revalidate its checkpoint before continuing\n`);
+    return 0;
+  }
+
+  process.stderr.write(`unknown operator subcommand '${sub}'\n`);
+  return 2;
+}
+
 async function main(): Promise<void> {
+  loadDotEnv();
   const { positional, flags } = parseArgs(process.argv.slice(2));
   const cmd = positional[0];
 
@@ -246,6 +540,19 @@ async function main(): Promise<void> {
       if (file === undefined) usage();
       process.exit(await cmdReplay(file, flags));
     }
+    // eslint-disable-next-line no-fallthrough
+    case 'discover':
+      process.exit(await cmdDiscover(flags));
+    // eslint-disable-next-line no-fallthrough
+    case 'approve': {
+      const file = positional[1];
+      if (file === undefined) usage();
+      process.exit(await cmdApprove(file, flags));
+    }
+    // eslint-disable-next-line no-fallthrough
+    case 'operator':
+      process.exit(await cmdOperator(positional, flags));
+    // eslint-disable-next-line no-fallthrough
     default:
       usage();
   }

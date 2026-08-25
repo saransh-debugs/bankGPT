@@ -28,3 +28,12 @@ dist/
 /docker/snapshots/
 
 .DS_Store
+
+# Personal Claude Code settings (not part of the submission)
+.claude/settings.local.json
+
+# Ad-hoc and test run output. Curated evidence lives in evidence/<named-dir>/
+# and IS tracked; these are the ones the engine names after a run id, plus the
+# scratch space tests write to.
+/evidence/scratch/
+/evidence/run-*/
