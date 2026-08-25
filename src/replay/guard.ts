@@ -33,7 +33,7 @@
  * Note what this module deliberately does NOT import: no provider SDK, no
  * discovery code. It is imported BY the engine, so anything it imported would
  * land in the engine's import graph and break requirement 3. The counter lives
- * here; the SDK lives only in src/discovery/, which imports this and calls
+ * here; the SDK lives only in src/discover/, which imports this and calls
  * `recordModelCall()` before each request.
  */
 
@@ -66,7 +66,7 @@ export class ModelCallInReplayError extends Error {
 }
 
 /**
- * Called by src/discovery/ immediately before each model request.
+ * Called by src/discover/ immediately before each model request.
  *
  * Throws if a replay is in flight, so the failure is loud and local rather than
  * an anomalous number noticed later in a log.

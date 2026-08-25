@@ -96,10 +96,14 @@ export async function evaluate(
       const out = await adapter.resolve(cond.target, ctx);
       if (!out.ok) return { ok: false, detail: out.detail };
       const actual = effectiveText(out.resolution.element);
-      const ok = matches(actual, cond.text, cond.match);
+      // Expanded through the engine, which owns inputs and bindings. A literal
+      // stays a literal when no expander is supplied, so terminal capabilities
+      // written before this existed behave identically.
+      const expected = ctx.expand ? ctx.expand(cond.text) : cond.text;
+      const ok = matches(actual, expected, cond.match);
       return {
         ok,
-        detail: ok ? `text "${actual}"` : `text was "${actual}", expected ${cond.match ?? 'exact'} "${cond.text}"`,
+        detail: ok ? `text "${actual}"` : `text was "${actual}", expected ${cond.match ?? 'exact'} "${expected}"`,
       };
     }
 

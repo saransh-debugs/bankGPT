@@ -100,13 +100,48 @@ export interface ReplayDeps {
    * should get a resumable state, not an invented error.
    */
   escalate?: (req: InterventionRequest) => Promise<InterventionOutcome>;
+  /**
+   * Bring a human in when a step gets stuck, instead of failing.
+   *
+   * OFF by default, and deliberately so. Escalation pins a live session open
+   * waiting for a person; turning that on implicitly would mean an unattended
+   * batch run could hang on a checkpoint nobody is watching. A caller that
+   * wants a human in the loop says so.
+   *
+   * With this on and no `escalate` handler, the run PARKS: it returns a
+   * resumable `intervention` result (exit 4) rather than inventing an error —
+   * which is the right answer for a caller that has no operator channel wired
+   * up but still wants the session preserved.
+   */
+  escalateOnStuck?: boolean;
   /** Injectable clock, so tests do not depend on wall time. */
   now?: () => Date;
   /** Secret resolution for `redact: true` steps. Defaults to process.env. */
   env?: Record<string, string | undefined>;
 }
 
+/**
+ * One line of the run's own account of itself, written for every step.
+ *
+ * Deliberately records HOW a target resolved, not just that it did: a step that
+ * used to resolve by explicit label association and now resolves by reading
+ * order has not failed, but it has drifted, and comparing this field across
+ * runs is where that shows up.
+ */
+interface StepRecord {
+  id: string;
+  action: string;
+  status: 'ok' | 'failed';
+  screenId?: string;
+  strategy?: string;
+  confidence?: number;
+  resolved?: string;
+  bindTo?: string;
+  detail?: string;
+}
+
 interface RunState {
+  stepLog: StepRecord[];
   bindings: Map<string, string>;
   warnings: RunWarning[];
   recoveries: RecoveryRecord[];
@@ -125,6 +160,7 @@ export async function replay(deps: ReplayDeps): Promise<ReplayResult> {
   const modelCallsBefore = modelCalls();
 
   const state: RunState = {
+    stepLog: [],
     bindings: new Map(),
     warnings: [],
     recoveries: [],
@@ -211,9 +247,37 @@ export async function replay(deps: ReplayDeps): Promise<ReplayResult> {
     state.warnings.push({ kind, detail, ...(stepId === undefined ? {} : { stepId }) });
   };
 
+  /**
+   * Expand templates in a condition's expected text.
+   *
+   * Scoped to `inputs` and `bindings` on purpose. `env` is where secrets live,
+   * and a condition's expected text is written verbatim into the failure
+   * result, the run log and any intervention request — so an artifact that
+   * asserts on `{{env.*}}` is rejected as invalid rather than quietly
+   * publishing the value it was trying to check.
+   */
+  const expandCondition = (raw: string): string => {
+    let out = raw;
+    for (const ref of templateRefs(raw)) {
+      if (ref.scope === 'env') {
+        throw new Error(
+          `a condition references env.${ref.name}; conditions may not read the environment, ` +
+            `because their expected text is written to evidence`,
+        );
+      }
+      const value = ref.scope === 'inputs' ? deps.inputs[ref.name] : state.bindings.get(ref.name);
+      if (value === undefined) {
+        throw new Error(`a condition references ${ref.scope}.${ref.name}, which has no value yet`);
+      }
+      out = out.replace(new RegExp(`\\{\\{\\s*${ref.scope}\\.${ref.name}\\s*\\}\\}`, 'g'), value);
+    }
+    return out;
+  };
+
   const baseCtx = (snapshot: SurfaceSnapshot): ResolveContext => ({
     snapshot,
     inputs: deps.inputs,
+    expand: expandCondition,
     ...(lexicon === undefined ? {} : { lexicon }),
     onFallback: (strategy: ResolveStrategy, detail: string) => {
       // A weaker rung firing is the earliest available drift signal, so it is
@@ -282,6 +346,24 @@ export async function replay(deps: ReplayDeps): Promise<ReplayResult> {
     } as never);
   });
 
+  // EVERY run leaves a record, not only the ones that went wrong.
+  //
+  // Capturing evidence solely on failure is the tempting shape and the wrong
+  // one: the brief asks for a structured log of what the run did and why, and
+  // the cases you most want to compare are a good run against a bad one. It is
+  // also what makes a successful replay auditable at all — "it returned 4250"
+  // is not evidence, "it resolved Total Savings via text-then-reading-order at
+  // step 09 and read 4,250.00" is.
+  //
+  // Written outside the guarded block so a run that failed inside the guard
+  // still produces its record.
+  await writeJson(join(evidenceDir, 'run.json'), {
+    ...guarded.result,
+    // The step-level detail the result contract does not carry, so a reviewer
+    // can follow the run without re-executing it.
+    steps: state.stepLog,
+  }).catch(() => undefined);
+
   return guarded.result;
 
   // ---------------------------------------------------------------------------
@@ -339,6 +421,14 @@ export async function replay(deps: ReplayDeps): Promise<ReplayResult> {
       }
 
       if (!check.ok) {
+        // STUCK, and a human might be able to fix it. Escalation is tried
+        // before failure so the session is preserved rather than torn down —
+        // and only when the caller asked for it.
+        if (deps.escalateOnStuck === true) {
+          const esc = await escalate(step, `checkpoint failed: ${check.detail}`);
+          if (esc !== null) return esc;
+          return null; // operator resolved it and the checkpoint revalidated
+        }
         await capture(`checkpoint-${step.id}`);
         return fail('checkpoint-failed', describeCondition(step.checkpoint), check.detail, {
           stepId: step.id,
@@ -355,8 +445,25 @@ export async function replay(deps: ReplayDeps): Promise<ReplayResult> {
   async function performAction(step: Step): Promise<ReplayResult | null> {
     let action: ResolvedAction;
 
+    if (step.action !== 'navigate' && step.action !== 'press' && step.action !== 'wait') {
+      /* targeted actions are recorded after resolution, below */
+    } else {
+      state.stepLog.push({
+        id: step.id,
+        action: step.action,
+        status: 'ok',
+        ...(step.url === undefined ? {} : { detail: step.url }),
+        ...(step.key === undefined ? {} : { detail: `key ${step.key}` }),
+      });
+    }
+
     if (step.action === 'navigate') {
-      action = { kind: 'navigate', url: substituteUrl(step.url as string) };
+      // Templates resolve in `url` for the same reason they resolve in `value`:
+      // the entry point of a web capability is per-environment configuration,
+      // and a hostname baked into an artifact is precisely the thing that makes
+      // one tenant's recording useless to the next. `{{env.WEB_APP_URL}}/#/login`
+      // keeps the flow in the artifact and the address in the environment.
+      action = { kind: 'navigate', url: substituteUrl(substitute(step.url as string, step)) };
     } else if (step.action === 'press') {
       action = { kind: 'press', key: step.key as string };
     } else if (step.action === 'wait') {
@@ -376,6 +483,29 @@ export async function replay(deps: ReplayDeps): Promise<ReplayResult> {
 
       const res = await deps.adapter.resolve(target, baseCtx(snap));
       if (!res.ok) {
+        // GIVE DECLARED OUTCOMES THE LAST WORD BEFORE CALLING THIS A FAILURE.
+        //
+        // A target that will not resolve is often the evidence that a declared
+        // business outcome happened, not evidence that the automation broke.
+        // Looking up a member who does not exist leaves no row to click: the
+        // anchor is genuinely unresolvable, and "no such member" is the correct,
+        // useful answer for the caller — not `anchor-unresolved`.
+        //
+        // Conflating those two is the single most common design error in this
+        // problem, and the giveaway is the exit code: a caller that has to
+        // distinguish "this member has no account" from "your automation is
+        // broken" cannot do it from a failure reason. Ambiguity is deliberately
+        // excluded — if an anchor matched several elements, something IS there
+        // and the run must halt rather than report a tidy business outcome.
+        if (res.reason !== 'anchor-ambiguous') {
+          const oc = await checkOutcomes(outcomesFor(step.id), snap);
+          if (oc) return oc;
+        }
+        if (deps.escalateOnStuck === true) {
+          const esc = await escalate(step, `${res.reason}: ${res.detail}`);
+          if (esc !== null) return esc;
+          return null;
+        }
         await capture(`unresolved-${step.id}`);
         return fail(res.reason, `resolve ${describeCondition({ type: 'present', target })}`, res.detail, {
           stepId: step.id,
@@ -384,6 +514,16 @@ export async function replay(deps: ReplayDeps): Promise<ReplayResult> {
       }
 
       const el = res.resolution.element;
+      state.stepLog.push({
+        id: step.id,
+        action: step.action,
+        status: 'ok',
+        screenId: snap.screenId,
+        strategy: res.resolution.strategy,
+        confidence: res.resolution.confidence,
+        resolved: target.description,
+        ...(step.bindTo === undefined ? {} : { bindTo: step.bindTo }),
+      });
       if (res.resolution.confidence < 1) {
         warn('ladder-fallback', `step '${step.id}' resolved at confidence ${res.resolution.confidence}`, step.id);
       }
@@ -556,7 +696,12 @@ export async function replay(deps: ReplayDeps): Promise<ReplayResult> {
       atStep: step.id,
       ...(res.operatorId === undefined ? {} : { operatorId: res.operatorId }),
       heldMs: res.heldMs,
-      stateDelta: diffLines(handle.snapshotText, res.snapshotTextAfter),
+      // The channel usually cannot supply an after-state: the adapter refuses
+      // to observe while the operator holds the lease. So the delta is computed
+      // from what the run ACTUALLY SAW on resuming, which is the stronger
+      // source anyway — a record of what changed, not a report of what the
+      // human said they changed.
+      stateDelta: diffLines(handle.snapshotText, res.snapshotTextAfter || after.text),
       resyncPassed: resync.ok,
     });
 
@@ -570,10 +715,6 @@ export async function replay(deps: ReplayDeps): Promise<ReplayResult> {
     }
     return null;
   }
-
-  // Referenced by tryRecover/runStep in later phases (session-expiry recovery
-  // routes here). Kept adjacent to the engine's other control flow.
-  void escalate;
 
   async function capture(label: string): Promise<void> {
     try {
