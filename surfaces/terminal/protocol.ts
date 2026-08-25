@@ -204,21 +204,17 @@ export function decodeCommand(line: string): HostCommand | null {
 }
 
 /**
- * Normalise a screen literal for anchor matching.
+ * Anchor-literal normalisation moved to src/adapter/literal.ts when the web
+ * adapter landed.
  *
  * Dot leaders are a real IBM i panel-design convention, not decoration: a
  * caption is written "MEMBER ID . . . . :" so the eye tracks across the screen.
- * An anchor stored as "MEMBER ID" has to match that. Collapsing runs of dots,
- * spaces and trailing colons is therefore part of perceiving this surface
- * correctly, and the same normalisation is what lets ONE artifact literal match
- * both a 5250 panel and a web label reading "Member ID:".
+ * But the *same* normalisation is what lets one stored literal match both that
+ * panel and an Angular label reading "Client Name :" — so it is a property of
+ * anchor matching in general, not of this protocol. Leaving it here would have
+ * forced the web adapter to import the terminal surface package, which is
+ * exactly the layering the SurfaceAdapter seam exists to prevent.
+ *
+ * Re-exported so this module's consumers do not have to care where it went.
  */
-export function normaliseLiteral(raw: string): string {
-  return raw
-    .replace(/[.·]+/g, ' ') // dot leaders -> space
-    .replace(/[[\]_]+/g, ' ') // field brackets and rule underscores are decoration
-    .replace(/\s+/g, ' ') // collapse runs
-    .replace(/\s*:\s*$/, '') // trailing colon
-    .trim()
-    .toUpperCase();
-}
+export { normaliseLiteral } from '../../src/adapter/literal.js';

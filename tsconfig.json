@@ -1,7 +1,13 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2023"],
+    // DOM is here for ONE reason: src/adapter/web.ts projects a page into
+    // ObservedElements inside page.evaluate(), and that callback is real
+    // browser code that has to typecheck. No other file may use browser
+    // globals — the surface adapters are the only layer that knows what kind
+    // of surface it is talking to, and that rule is what keeps the artifact
+    // schema surface-independent.
+    "lib": ["ES2023", "DOM"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "types": ["node"],
