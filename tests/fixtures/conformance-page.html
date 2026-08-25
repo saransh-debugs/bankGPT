@@ -1,0 +1,56 @@
+<!doctype html>
+<!--
+  A deliberately mixed surface for tests/adapter-conformance.test.ts.
+
+  It is not a pretty page and is not meant to be. Each section exists to
+  exercise one rung or relation that must behave identically on both adapters:
+
+    - a <label for> form, so the strongest ladder rung has something to hit
+    - a caption/value pair with NO role, name or id — the Mifos detail-page
+      shape, where role+accessible-name has nothing to bind to
+    - a real <table>, so same-row and under-column resolve from declared
+      structure rather than from guessed layout
+    - a literal repeated twice, so ambiguity has something to halt on
+-->
+<meta charset="utf-8" />
+<title>Conformance fixture</title>
+<h1>MEMBER SERVICES</h1>
+
+<form>
+  <label for="member-id">MEMBER ID</label>
+  <input id="member-id" type="text" />
+
+  <label for="pin">PIN</label>
+  <input id="pin" type="password" />
+
+  <button type="button">Search</button>
+</form>
+
+<section>
+  <b>NAME</b> <span>OKONKWO, JANET A</span><br />
+  <b>STATUS</b> <span>ACTIVE</span><br />
+  <b>BALANCE</b> <span>4,250.00</span>
+</section>
+
+<table>
+  <tr>
+    <th>Account</th>
+    <th>Type</th>
+    <th>Balance</th>
+  </tr>
+  <tr>
+    <td>SAV-0001234567</td>
+    <td>Savings</td>
+    <td>4,250.00</td>
+  </tr>
+  <tr>
+    <td>CHK-0007654321</td>
+    <td>Checking</td>
+    <td>812.44</td>
+  </tr>
+</table>
+
+<footer>
+  <span>DUPLICATED</span>
+  <span>DUPLICATED</span>
+</footer>
