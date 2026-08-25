@@ -42,6 +42,16 @@ export interface ObservedElement {
   role?: ControlRole;
   /** ENRICHMENT. Undefined on terminal. Never required to resolve. */
   name?: string;
+  /**
+   * ENRICHMENT. Where `name` came from, when the surface can say.
+   *
+   * An accessible name is not one thing: a name from a `<label for>` is an
+   * explicit authored association, and a name from a placeholder is a guess the
+   * browser made on the author's behalf. They deserve different confidence, and
+   * the resolution ladder reports which rung fired from this. Undefined on
+   * terminal, which has no naming layer at all.
+   */
+  nameSource?: 'label-for' | 'label-wrap' | 'field-label' | 'aria-labelledby' | 'aria-label' | 'placeholder' | 'title' | 'text';
   /** Can the operator put data here? The predicate `next-writable` needs. */
   writable: boolean;
   /** Is it currently actionable (not disabled)? */
@@ -198,4 +208,18 @@ export interface ResolveContext {
   lexicon?: Record<string, string>;
   /** Called when a weaker-than-primary rung fires, to record a drift warning. */
   onFallback?: (strategy: ResolveStrategy, detail: string) => void;
+  /**
+   * Expand `{{inputs.*}}` / `{{bindings.*}}` in a condition's expected text.
+   *
+   * Supplied by the replay engine, which is the one component that knows the
+   * run's inputs and bindings; the evaluator must not re-implement
+   * substitution, or two places would define what a template means. A
+   * checkpoint like `text = "{{inputs.memberId}}"` is what lets a capability
+   * assert it landed on the RIGHT record rather than merely on a record.
+   *
+   * Deliberately cannot reach `env`: environment values are how secrets are
+   * carried, and a failed assertion writes its expected text into the result,
+   * the run log and the intervention request.
+   */
+  expand?: (raw: string) => string;
 }
