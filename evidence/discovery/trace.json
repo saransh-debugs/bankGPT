@@ -1,0 +1,298 @@
+{
+  "goal": "look up member 000000001 and read their current savings balance",
+  "surface": "web",
+  "model": "openai-compatible:google/gemini-3.5-flash-lite",
+  "startedAt": "2026-08-24T23:08:47.404Z",
+  "finishedAt": "2026-08-24T23:09:10.238Z",
+  "outcome": "goal-met",
+  "summary": "Successfully logged in, searched for member 000000001, and read their total savings balance.",
+  "outputs": [
+    {
+      "description": "Current savings balance for the member",
+      "type": "money",
+      "from": "savingsBalance",
+      "name": "savingsBalance"
+    }
+  ],
+  "inputs": {
+    "memberId": "000000001"
+  },
+  "entries": [
+    {
+      "index": 0,
+      "step": {
+        "action": "navigate",
+        "intent": "open the application entry point",
+        "url": "http://localhost:4200",
+        "reversibility": "safe"
+      },
+      "status": "ok",
+      "screenBefore": "about:blank",
+      "screenAfter": "/login"
+    },
+    {
+      "index": 1,
+      "step": {
+        "target": {
+          "relation": "next-writable",
+          "description": "Username input field",
+          "anchorText": "Username",
+          "rationale": "Username label is stable and uniquely identifies the input field.",
+          "anchorKind": "label"
+        },
+        "reversibility": "safe",
+        "action": "fill",
+        "intent": "Enter username",
+        "value": "{{env.FINERACT_USER}}"
+      },
+      "status": "ok",
+      "screenBefore": "/login",
+      "screenAfter": "/login",
+      "strategy": "label-association"
+    },
+    {
+      "index": 2,
+      "step": {
+        "reversibility": "safe",
+        "intent": "Enter «redacted»",
+        "action": "fill",
+        "target": {
+          "relation": "next-writable",
+          "anchorKind": "label",
+          "description": "Password input field",
+          "rationale": "Password label is stable and uniquely identifies the input field.",
+          "anchorText": "Password"
+        },
+        "value": "{{env.FINERACT_PASSWORD}}"
+      },
+      "status": "ok",
+      "screenBefore": "/login",
+      "screenAfter": "/login",
+      "strategy": "label-association"
+    },
+    {
+      "index": 3,
+      "step": {
+        "reversibility": "safe",
+        "action": "click",
+        "target": {
+          "anchorKind": "self",
+          "description": "Login button",
+          "rationale": "Login button has unique self text 'Login'.",
+          "relation": "is",
+          "anchorText": "Login"
+        },
+        "intent": "Click Login button"
+      },
+      "status": "ok",
+      "screenBefore": "/login",
+      "screenAfter": "/home",
+      "strategy": "text-then-reading-order"
+    },
+    {
+      "index": 4,
+      "step": {
+        "action": "fill",
+        "intent": "Search for member ID",
+        "value": "{{inputs.memberId}}",
+        "reversibility": "safe",
+        "target": {
+          "description": "Search input field",
+          "rationale": "Search Activity label is stable for the search box.",
+          "anchorKind": "label",
+          "relation": "next-writable",
+          "anchorText": "Search Activity"
+        }
+      },
+      "status": "ok",
+      "screenBefore": "/home",
+      "screenAfter": "/home",
+      "strategy": "label-association"
+    },
+    {
+      "index": 5,
+      "step": {
+        "key": "Enter",
+        "reversibility": "safe",
+        "action": "press",
+        "intent": "Press Enter to search"
+      },
+      "status": "ok",
+      "screenBefore": "/home",
+      "screenAfter": "/home"
+    },
+    {
+      "index": 6,
+      "step": {
+        "reversibility": "safe",
+        "action": "navigate",
+        "url": "http://localhost:4200/#/clients",
+        "intent": "Navigate to Clients page"
+      },
+      "status": "ok",
+      "screenBefore": "/home",
+      "screenAfter": "/clients"
+    },
+    {
+      "index": 7,
+      "step": {
+        "intent": "Search for client by memberId",
+        "value": "{{inputs.memberId}}",
+        "action": "fill",
+        "target": {
+          "anchorKind": "landmark",
+          "description": "Search by client name input field",
+          "rationale": "Search field for clients list",
+          "anchorText": "clients",
+          "relation": "next-writable"
+        },
+        "reversibility": "safe"
+      },
+      "status": "unresolved",
+      "screenBefore": "/clients",
+      "screenAfter": "/clients",
+      "detail": "\"clients\" matches 2 elements on /clients via text-then-reading-order (w26, w29). Add a scope to disambiguate."
+    },
+    {
+      "index": 8,
+      "step": {
+        "action": "fill",
+        "value": "{{inputs.memberId}}",
+        "target": {
+          "description": "Search input field for clients",
+          "anchorKind": "label",
+          "anchorText": "Search by client name, external Id, mobile",
+          "rationale": "Placeholder label is unique and stable.",
+          "relation": "next-writable"
+        },
+        "intent": "Search for client by memberId using placeholder",
+        "reversibility": "safe"
+      },
+      "status": "unresolved",
+      "screenBefore": "/clients",
+      "screenAfter": "/clients",
+      "detail": "no element on /clients reads \"Search by client name, external Id, mobile\" (normalised \"SEARCH BY CLIENT NAME, EXTERNAL ID, MOBILE\") with a 'next-writable' relation available"
+    },
+    {
+      "index": 9,
+      "step": {
+        "intent": "Type member ID into search input using placeholder anchor",
+        "action": "fill",
+        "target": {
+          "rationale": "Placeholder label uniquely identifies the search input.",
+          "relation": "next-writable",
+          "description": "Search input field",
+          "anchorKind": "label",
+          "anchorText": "Search by client name, external Id, mobile"
+        },
+        "value": "{{inputs.memberId}}",
+        "reversibility": "safe"
+      },
+      "status": "unresolved",
+      "screenBefore": "/clients",
+      "screenAfter": "/clients",
+      "detail": "no element on /clients reads \"Search by client name, external Id, mobile\" (normalised \"SEARCH BY CLIENT NAME, EXTERNAL ID, MOBILE\") with a 'next-writable' relation available"
+    },
+    {
+      "index": 10,
+      "step": {
+        "target": {
+          "anchorKind": "landmark",
+          "relation": "next-writable",
+          "description": "Search input field",
+          "rationale": "Using landmark clients to uniquely anchor the search input field which is right next to it in the DOM order.",
+          "anchorText": "clients"
+        },
+        "value": "{{inputs.memberId}}",
+        "reversibility": "safe",
+        "action": "fill",
+        "intent": "Type member ID into search input using placeholder"
+      },
+      "status": "unresolved",
+      "screenBefore": "/clients",
+      "screenAfter": "/clients",
+      "detail": "\"clients\" matches 2 elements on /clients via text-then-reading-order (w26, w29). Add a scope to disambiguate."
+    },
+    {
+      "index": 11,
+      "step": {
+        "target": {
+          "anchorKind": "label",
+          "description": "Search by client name, external Id, mobile input field",
+          "relation": "next-writable",
+          "rationale": "Using placeholder label anchorKind 'label' to target the search input correctly.",
+          "anchorText": "Search by client name, external Id, mobile"
+        },
+        "intent": "Type member ID into search input",
+        "action": "fill",
+        "value": "{{inputs.memberId}}",
+        "reversibility": "safe"
+      },
+      "status": "unresolved",
+      "screenBefore": "/clients",
+      "screenAfter": "/clients",
+      "detail": "no element on /clients reads \"Search by client name, external Id, mobile\" (normalised \"SEARCH BY CLIENT NAME, EXTERNAL ID, MOBILE\") with a 'next-writable' relation available"
+    },
+    {
+      "index": 12,
+      "step": {
+        "target": {
+          "relation": "is",
+          "anchorKind": "self",
+          "rationale": "Placeholder can be anchored using self if it's the element's own placeholder name.",
+          "description": "Search input field",
+          "anchorText": "Search by client name, external Id, mobile"
+        },
+        "intent": "Type member ID into search input using placeholder",
+        "reversibility": "safe",
+        "value": "{{inputs.memberId}}",
+        "action": "fill"
+      },
+      "status": "ok",
+      "screenBefore": "/clients",
+      "screenAfter": "/clients",
+      "strategy": "accessible-name"
+    },
+    {
+      "index": 13,
+      "step": {
+        "intent": "Click on member 000000001 in the search results table",
+        "reversibility": "safe",
+        "action": "click",
+        "target": {
+          "anchorText": "memberId",
+          "description": "Member ID link in table",
+          "anchorKind": "param",
+          "relation": "is",
+          "rationale": "Using param anchorKind to target the specific member ID matching inputs.memberId in the table."
+        }
+      },
+      "status": "ok",
+      "screenBefore": "/clients",
+      "screenAfter": "/clients/1/general",
+      "strategy": "text-then-reading-order"
+    },
+    {
+      "index": 14,
+      "step": {
+        "target": {
+          "relation": "next-value",
+          "anchorText": "Total Savings",
+          "rationale": "Total Savings caption is stable and precedes the balance value.",
+          "description": "Total Savings balance value",
+          "anchorKind": "label"
+        },
+        "action": "read",
+        "bindTo": "savingsBalance",
+        "intent": "Read Total Savings balance",
+        "reversibility": "safe"
+      },
+      "status": "ok",
+      "screenBefore": "/clients/1/general",
+      "screenAfter": "/clients/1/general",
+      "strategy": "text-then-reading-order",
+      "captured": "4,250.00"
+    }
+  ],
+  "modelCalls": 15
+}

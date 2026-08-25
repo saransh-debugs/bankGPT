@@ -1,0 +1,258 @@
+{
+  "id": "member.savings.balance.read",
+  "version": "0.1.0",
+  "schemaVersion": "1.0",
+  "name": "member.savings.balance.read (discovered)",
+  "description": "Successfully logged in, searched for member {{inputs.memberId}}, and read their total savings balance.",
+  "product": "openmf/web-app",
+  "surface": "web",
+  "recordedForTenant": "default",
+  "approvalState": "draft",
+  "inputs": [
+    {
+      "name": "memberId",
+      "type": "string",
+      "required": true,
+      "description": "Supplied by the caller. Recorded against a value fingerprinted as sha256:7e09d41e8e197927.",
+      "example": "sha256:7e09d41e8e197927"
+    }
+  ],
+  "outputs": [
+    {
+      "name": "savingsBalance",
+      "type": "money",
+      "from": "savingsBalance",
+      "description": "Current savings balance for the member"
+    }
+  ],
+  "steps": [
+    {
+      "id": "01-open-the-application-entry",
+      "action": "navigate",
+      "url": "http://localhost:4200",
+      "reversibility": "safe",
+      "checkpoint": {
+        "type": "present",
+        "target": {
+          "anchor": {
+            "kind": "label",
+            "text": "Username"
+          },
+          "relation": "next-writable",
+          "rationale": "Observed during discovery: this control was present immediately after the step ran, so its presence is a post-condition the recording actually witnessed. Original locator rationale: Username label is stable and uniquely identifies the input field.",
+          "description": "Username input field"
+        }
+      }
+    },
+    {
+      "id": "02-enter-username",
+      "action": "fill",
+      "target": {
+        "anchor": {
+          "kind": "label",
+          "text": "Username"
+        },
+        "relation": "next-writable",
+        "rationale": "Username label is stable and uniquely identifies the input field.",
+        "description": "Username input field"
+      },
+      "value": "{{env.FINERACT_USER}}",
+      "reversibility": "safe",
+      "redact": true,
+      "checkpoint": {
+        "type": "present",
+        "target": {
+          "anchor": {
+            "kind": "label",
+            "text": "Password"
+          },
+          "relation": "next-writable",
+          "rationale": "Observed during discovery: this control was present immediately after the step ran, so its presence is a post-condition the recording actually witnessed. Original locator rationale: Password label is stable and uniquely identifies the input field.",
+          "description": "Password input field"
+        }
+      }
+    },
+    {
+      "id": "03-enter-password",
+      "action": "fill",
+      "target": {
+        "anchor": {
+          "kind": "label",
+          "text": "Password"
+        },
+        "relation": "next-writable",
+        "rationale": "Password label is stable and uniquely identifies the input field.",
+        "description": "Password input field"
+      },
+      "value": "{{env.FINERACT_PASSWORD}}",
+      "reversibility": "safe",
+      "redact": true,
+      "checkpoint": {
+        "type": "present",
+        "target": {
+          "anchor": {
+            "kind": "self",
+            "text": "Login"
+          },
+          "relation": "is",
+          "rationale": "Observed during discovery: this control was present immediately after the step ran, so its presence is a post-condition the recording actually witnessed. Original locator rationale: Login button has unique self text 'Login'.",
+          "description": "Login button"
+        }
+      }
+    },
+    {
+      "id": "04-click-login-button",
+      "action": "click",
+      "target": {
+        "anchor": {
+          "kind": "self",
+          "text": "Login"
+        },
+        "relation": "is",
+        "rationale": "Login button has unique self text 'Login'.",
+        "description": "Login button"
+      },
+      "reversibility": "safe",
+      "checkpoint": {
+        "type": "present",
+        "target": {
+          "anchor": {
+            "kind": "label",
+            "text": "Search Activity"
+          },
+          "relation": "next-writable",
+          "rationale": "Observed during discovery: this control was present immediately after the step ran, so its presence is a post-condition the recording actually witnessed. Original locator rationale: Search Activity label is stable for the search box.",
+          "description": "Search input field"
+        }
+      }
+    },
+    {
+      "id": "05-search-for-member-id",
+      "action": "fill",
+      "target": {
+        "anchor": {
+          "kind": "label",
+          "text": "Search Activity"
+        },
+        "relation": "next-writable",
+        "rationale": "Search Activity label is stable for the search box.",
+        "description": "Search input field"
+      },
+      "value": "{{inputs.memberId}}",
+      "reversibility": "safe"
+    },
+    {
+      "id": "06-press-enter-to-search",
+      "action": "press",
+      "key": "Enter",
+      "reversibility": "safe"
+    },
+    {
+      "id": "07-navigate-to-clients-page",
+      "action": "navigate",
+      "url": "http://localhost:4200/#/clients",
+      "reversibility": "safe",
+      "checkpoint": {
+        "type": "present",
+        "target": {
+          "anchor": {
+            "kind": "self",
+            "text": "Search by client name, external Id, mobile"
+          },
+          "relation": "is",
+          "rationale": "Observed during discovery: this control was present immediately after the step ran, so its presence is a post-condition the recording actually witnessed. Original locator rationale: Placeholder can be anchored using self if it's the element's own placeholder name.",
+          "description": "Search input field"
+        }
+      }
+    },
+    {
+      "id": "08-type-member-id-into",
+      "action": "fill",
+      "target": {
+        "anchor": {
+          "kind": "self",
+          "text": "Search by client name, external Id, mobile"
+        },
+        "relation": "is",
+        "rationale": "Placeholder can be anchored using self if it's the element's own placeholder name.",
+        "description": "Search input field"
+      },
+      "value": "{{inputs.memberId}}",
+      "reversibility": "safe",
+      "checkpoint": {
+        "type": "present",
+        "target": {
+          "anchor": {
+            "kind": "param",
+            "name": "memberId"
+          },
+          "relation": "is",
+          "rationale": "Observed during discovery: this control was present immediately after the step ran, so its presence is a post-condition the recording actually witnessed. Original locator rationale: Using param anchorKind to target the specific member ID matching inputs.memberId in the table.",
+          "description": "Member ID link in table"
+        }
+      }
+    },
+    {
+      "id": "09-click-on-member-000000001",
+      "action": "click",
+      "target": {
+        "anchor": {
+          "kind": "param",
+          "name": "memberId"
+        },
+        "relation": "is",
+        "rationale": "Using param anchorKind to target the specific member ID matching inputs.memberId in the table.",
+        "description": "Member ID link in table"
+      },
+      "reversibility": "safe",
+      "checkpoint": {
+        "type": "present",
+        "target": {
+          "anchor": {
+            "kind": "label",
+            "text": "Total Savings"
+          },
+          "relation": "next-value",
+          "rationale": "Observed during discovery: this control was present immediately after the step ran, so its presence is a post-condition the recording actually witnessed. Original locator rationale: Total Savings caption is stable and precedes the balance value.",
+          "description": "Total Savings balance value"
+        }
+      }
+    },
+    {
+      "id": "10-read-total-savings-balance",
+      "action": "read",
+      "target": {
+        "anchor": {
+          "kind": "label",
+          "text": "Total Savings"
+        },
+        "relation": "next-value",
+        "rationale": "Total Savings caption is stable and precedes the balance value.",
+        "description": "Total Savings balance value"
+      },
+      "bindTo": "savingsBalance",
+      "reversibility": "safe"
+    }
+  ],
+  "successCondition": {
+    "type": "present",
+    "target": {
+      "anchor": {
+        "kind": "label",
+        "text": "Total Savings"
+      },
+      "relation": "next-value",
+      "rationale": "The final value the capability exists to return. Asserted so success is defined by the application still rendering it, not by the steps having run without throwing. Original locator rationale: Total Savings caption is stable and precedes the balance value.",
+      "description": "Total Savings balance value"
+    }
+  },
+  "outcomes": [],
+  "recoveries": [],
+  "maxReversibility": "safe",
+  "metadata": {
+    "recordedAt": "2026-08-24T23:08:47.404Z",
+    "recordedBy": "discovery",
+    "model": "openai-compatible:google/gemini-3.5-flash-lite",
+    "goalPrompt": "look up member {{inputs.memberId}} and read their current savings balance"
+  }
+}

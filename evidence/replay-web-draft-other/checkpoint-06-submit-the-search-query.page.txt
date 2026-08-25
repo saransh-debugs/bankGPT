@@ -1,0 +1,25 @@
+Dashboard
+Navigation
+Checker Inbox and Tasks
+Collection Sheet
+Individual Collection Sheet
+Remittances
+Notifications
+Frequent Postings
+Create Journal Entry
+Chart of Accounts
+Keyboard Shortcuts
+Help
+ Institution
+ Accounting  Reports  Admin  Configuration Wizard
+Language
+English
+Notifications
+nights_stay
+Home
+ Dashboard
+Welcome mifos to Default!
+Search Activity
+Warning
+This system is for authorized use only. Unauthorized access will result in possible legal action. By accessing this system, you acknowledge that you are authorized to do so and that all data stored and processed here is confidential.
+Close

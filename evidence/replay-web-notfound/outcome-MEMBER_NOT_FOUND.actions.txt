@@ -1,0 +1,11 @@
+# session web-gsycfjqz started
+> navigate http://localhost:4200/#/login
+< observe /login (29 elements)
+> fill w13 = <redacted>
+< observe /login (29 elements)
+> fill w16 = <redacted>
+< observe /login (31 elements)
+> click w20
+< observe /home (39 elements)
+> navigate http://localhost:4200/#/clients
+< observe /clients (83 elements)

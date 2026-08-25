@@ -1,0 +1,39 @@
+{
+  "runId": "run-2026-08-24T16-10-48-399Z-501a24b7",
+  "capabilityId": "member.savings.balance.read",
+  "capabilityVersion": "1.0.0",
+  "tenant": "northridge",
+  "surface": "terminal",
+  "startedAt": "2026-08-24T16:10:48.398Z",
+  "finishedAt": "2026-08-24T16:10:48.412Z",
+  "durationMs": 14,
+  "modelCalls": 0,
+  "warnings": [],
+  "evidence": [
+    "evidence/replay-terminal-notfound/outcome-MEMBER_NOT_FOUND.screen.txt",
+    "evidence/replay-terminal-notfound/outcome-MEMBER_NOT_FOUND.protocol.txt"
+  ],
+  "kind": "outcome",
+  "code": "MEMBER_NOT_FOUND",
+  "description": "No member exists with the supplied id. A legitimate answer the caller needs, not a failure.",
+  "partialOutputs": {},
+  "recoveries": [],
+  "interventions": [],
+  "steps": [
+    {
+      "id": "key-member-id",
+      "action": "fill",
+      "status": "ok",
+      "screenId": "MBR001",
+      "strategy": "grid-scan",
+      "confidence": 1,
+      "resolved": "MEMBER ID entry field"
+    },
+    {
+      "id": "transmit-inquiry",
+      "action": "press",
+      "status": "ok",
+      "detail": "key Enter"
+    }
+  ]
+}

@@ -1,0 +1,104 @@
+{
+  "runId": "run-2026-08-24T23-09-35-878Z-6abea094",
+  "capabilityId": "member.savings.balance.read",
+  "capabilityVersion": "0.1.0",
+  "tenant": "default",
+  "surface": "web",
+  "startedAt": "2026-08-24T23:09:35.878Z",
+  "finishedAt": "2026-08-24T23:09:45.686Z",
+  "durationMs": 9808,
+  "modelCalls": 0,
+  "warnings": [],
+  "evidence": [],
+  "kind": "success",
+  "outputs": {
+    "savingsBalance": "4250.00"
+  },
+  "degraded": false,
+  "recoveries": [],
+  "interventions": [],
+  "steps": [
+    {
+      "id": "01-open-the-application-entry",
+      "action": "navigate",
+      "status": "ok",
+      "detail": "http://localhost:4200"
+    },
+    {
+      "id": "02-enter-username",
+      "action": "fill",
+      "status": "ok",
+      "screenId": "/login",
+      "strategy": "label-association",
+      "confidence": 1,
+      "resolved": "Username input field"
+    },
+    {
+      "id": "03-enter-password",
+      "action": "fill",
+      "status": "ok",
+      "screenId": "/login",
+      "strategy": "label-association",
+      "confidence": 1,
+      "resolved": "Password input field"
+    },
+    {
+      "id": "04-click-login-button",
+      "action": "click",
+      "status": "ok",
+      "screenId": "/login",
+      "strategy": "text-then-reading-order",
+      "confidence": 1,
+      "resolved": "Login button"
+    },
+    {
+      "id": "05-search-for-member-id",
+      "action": "fill",
+      "status": "ok",
+      "screenId": "/home",
+      "strategy": "label-association",
+      "confidence": 1,
+      "resolved": "Search input field"
+    },
+    {
+      "id": "06-press-enter-to-search",
+      "action": "press",
+      "status": "ok",
+      "detail": "key Enter"
+    },
+    {
+      "id": "07-navigate-to-clients-page",
+      "action": "navigate",
+      "status": "ok",
+      "detail": "http://localhost:4200/#/clients"
+    },
+    {
+      "id": "08-type-member-id-into",
+      "action": "fill",
+      "status": "ok",
+      "screenId": "/clients",
+      "strategy": "accessible-name",
+      "confidence": 1,
+      "resolved": "Search input field"
+    },
+    {
+      "id": "09-click-on-member-000000001",
+      "action": "click",
+      "status": "ok",
+      "screenId": "/clients",
+      "strategy": "text-then-reading-order",
+      "confidence": 1,
+      "resolved": "Member ID link in table"
+    },
+    {
+      "id": "10-read-total-savings-balance",
+      "action": "read",
+      "status": "ok",
+      "screenId": "/clients/1/general",
+      "strategy": "text-then-reading-order",
+      "confidence": 1,
+      "resolved": "Total Savings balance value",
+      "bindTo": "savingsBalance"
+    }
+  ]
+}

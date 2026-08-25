@@ -1,0 +1,24 @@
+================================================================================
+ NORTHRIDGE CU             MEMBER SERVICES                        SCR MBR001    
+================================================================================
+                                                                                
+   MEMBER ID . . . . [99999   ]                                                 
+                                                                                
+   NAME  . . . . . .                                                            
+   STATUS  . . . . .                                                            
+   SAVINGS ACCT  . .                                                            
+   BALANCE . . . . .                                                            
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+ F3=Exit   F5=Refresh   F12=Cancel                                              
+ MSG: MEMBER NOT FOUND                                                          

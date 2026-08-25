@@ -1,0 +1,64 @@
+{
+  "runId": "run-2026-08-24T16-11-03-620Z-0d0a204c",
+  "capabilityId": "member.savings.balance.read",
+  "capabilityVersion": "1.0.0",
+  "tenant": "default",
+  "surface": "web",
+  "startedAt": "2026-08-24T16:11:03.620Z",
+  "finishedAt": "2026-08-24T16:11:09.614Z",
+  "durationMs": 5994,
+  "modelCalls": 0,
+  "warnings": [],
+  "evidence": [
+    "evidence/replay-web-notfound/outcome-MEMBER_NOT_FOUND.png",
+    "evidence/replay-web-notfound/outcome-MEMBER_NOT_FOUND.page.txt",
+    "evidence/replay-web-notfound/outcome-MEMBER_NOT_FOUND.actions.txt"
+  ],
+  "kind": "outcome",
+  "code": "MEMBER_NOT_FOUND",
+  "description": "No member in the client list carries the supplied account number. A legitimate answer the caller needs, not a failure.",
+  "partialOutputs": {},
+  "recoveries": [],
+  "interventions": [],
+  "steps": [
+    {
+      "id": "open-sign-in",
+      "action": "navigate",
+      "status": "ok",
+      "detail": "{{env.WEB_APP_URL}}/#/login"
+    },
+    {
+      "id": "key-username",
+      "action": "fill",
+      "status": "ok",
+      "screenId": "/login",
+      "strategy": "label-association",
+      "confidence": 1,
+      "resolved": "Username field"
+    },
+    {
+      "id": "key-password",
+      "action": "fill",
+      "status": "ok",
+      "screenId": "/login",
+      "strategy": "label-association",
+      "confidence": 1,
+      "resolved": "Password field"
+    },
+    {
+      "id": "submit-sign-in",
+      "action": "click",
+      "status": "ok",
+      "screenId": "/login",
+      "strategy": "text-then-reading-order",
+      "confidence": 1,
+      "resolved": "Login button"
+    },
+    {
+      "id": "open-client-list",
+      "action": "navigate",
+      "status": "ok",
+      "detail": "{{env.WEB_APP_URL}}/#/clients"
+    }
+  ]
+}

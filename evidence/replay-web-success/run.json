@@ -1,0 +1,113 @@
+{
+  "runId": "run-2026-08-24T16-10-50-776Z-cbef220a",
+  "capabilityId": "member.savings.balance.read",
+  "capabilityVersion": "1.0.0",
+  "tenant": "default",
+  "surface": "web",
+  "startedAt": "2026-08-24T16:10:50.776Z",
+  "finishedAt": "2026-08-24T16:11:01.415Z",
+  "durationMs": 10639,
+  "modelCalls": 0,
+  "warnings": [],
+  "evidence": [],
+  "kind": "success",
+  "outputs": {
+    "memberName": "Janet Okonkwo",
+    "status": "13 August 2026",
+    "savingsAccount": "000000001",
+    "savingsBalance": "4250.00"
+  },
+  "degraded": false,
+  "recoveries": [],
+  "interventions": [],
+  "steps": [
+    {
+      "id": "open-sign-in",
+      "action": "navigate",
+      "status": "ok",
+      "detail": "{{env.WEB_APP_URL}}/#/login"
+    },
+    {
+      "id": "key-username",
+      "action": "fill",
+      "status": "ok",
+      "screenId": "/login",
+      "strategy": "label-association",
+      "confidence": 1,
+      "resolved": "Username field"
+    },
+    {
+      "id": "key-password",
+      "action": "fill",
+      "status": "ok",
+      "screenId": "/login",
+      "strategy": "label-association",
+      "confidence": 1,
+      "resolved": "Password field"
+    },
+    {
+      "id": "submit-sign-in",
+      "action": "click",
+      "status": "ok",
+      "screenId": "/login",
+      "strategy": "text-then-reading-order",
+      "confidence": 1,
+      "resolved": "Login button"
+    },
+    {
+      "id": "open-client-list",
+      "action": "navigate",
+      "status": "ok",
+      "detail": "{{env.WEB_APP_URL}}/#/clients"
+    },
+    {
+      "id": "open-member",
+      "action": "click",
+      "status": "ok",
+      "screenId": "/clients",
+      "strategy": "text-then-reading-order",
+      "confidence": 1,
+      "resolved": "the member's account number in the client list"
+    },
+    {
+      "id": "read-name",
+      "action": "read",
+      "status": "ok",
+      "screenId": "/clients/1/general",
+      "strategy": "text-then-reading-order",
+      "confidence": 1,
+      "resolved": "Client Name value",
+      "bindTo": "nameValue"
+    },
+    {
+      "id": "read-status",
+      "action": "read",
+      "status": "ok",
+      "screenId": "/clients/1/general",
+      "strategy": "text-then-reading-order",
+      "confidence": 1,
+      "resolved": "Activation Date value",
+      "bindTo": "statusValue"
+    },
+    {
+      "id": "read-account",
+      "action": "read",
+      "status": "ok",
+      "screenId": "/clients/1/general",
+      "strategy": "text-then-reading-order",
+      "confidence": 1,
+      "resolved": "Account No. value",
+      "bindTo": "acctValue"
+    },
+    {
+      "id": "read-balance",
+      "action": "read",
+      "status": "ok",
+      "screenId": "/clients/1/general",
+      "strategy": "text-then-reading-order",
+      "confidence": 1,
+      "resolved": "Total Savings value",
+      "bindTo": "balanceValue"
+    }
+  ]
+}

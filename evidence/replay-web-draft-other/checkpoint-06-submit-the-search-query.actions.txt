@@ -1,0 +1,14 @@
+# session web-ufskwug0 started
+> navigate http://localhost:4200
+< observe /login (29 elements)
+> fill w13 = <redacted>
+< observe /login (29 elements)
+> fill w16 = <redacted>
+< observe /login (31 elements)
+> click w20
+< observe /home (39 elements)
+> fill w31 = 000000002
+< observe /home (39 elements)
+> press Enter
+< observe /home (39 elements)
+< observe /home (39 elements)

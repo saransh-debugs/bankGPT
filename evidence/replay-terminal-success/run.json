@@ -1,0 +1,80 @@
+{
+  "runId": "run-2026-08-24T16-10-46-220Z-61b03b48",
+  "capabilityId": "member.savings.balance.read",
+  "capabilityVersion": "1.0.0",
+  "tenant": "northridge",
+  "surface": "terminal",
+  "startedAt": "2026-08-24T16:10:46.219Z",
+  "finishedAt": "2026-08-24T16:10:46.236Z",
+  "durationMs": 17,
+  "modelCalls": 0,
+  "warnings": [],
+  "evidence": [],
+  "kind": "success",
+  "outputs": {
+    "memberName": "OKONKWO, JANET A",
+    "status": "ACTIVE",
+    "savingsAccount": "SAV-0001234567",
+    "savingsBalance": "4250.00"
+  },
+  "degraded": false,
+  "recoveries": [],
+  "interventions": [],
+  "steps": [
+    {
+      "id": "key-member-id",
+      "action": "fill",
+      "status": "ok",
+      "screenId": "MBR001",
+      "strategy": "grid-scan",
+      "confidence": 1,
+      "resolved": "MEMBER ID entry field"
+    },
+    {
+      "id": "transmit-inquiry",
+      "action": "press",
+      "status": "ok",
+      "detail": "key Enter"
+    },
+    {
+      "id": "read-name",
+      "action": "read",
+      "status": "ok",
+      "screenId": "MBR001",
+      "strategy": "grid-scan",
+      "confidence": 1,
+      "resolved": "NAME display field",
+      "bindTo": "nameValue"
+    },
+    {
+      "id": "read-status",
+      "action": "read",
+      "status": "ok",
+      "screenId": "MBR001",
+      "strategy": "grid-scan",
+      "confidence": 1,
+      "resolved": "STATUS display field",
+      "bindTo": "statusValue"
+    },
+    {
+      "id": "read-account",
+      "action": "read",
+      "status": "ok",
+      "screenId": "MBR001",
+      "strategy": "grid-scan",
+      "confidence": 1,
+      "resolved": "SAVINGS ACCT display field",
+      "bindTo": "acctValue"
+    },
+    {
+      "id": "read-balance",
+      "action": "read",
+      "status": "ok",
+      "screenId": "MBR001",
+      "strategy": "grid-scan",
+      "confidence": 1,
+      "resolved": "BALANCE display field",
+      "bindTo": "balanceValue"
+    }
+  ]
+}
