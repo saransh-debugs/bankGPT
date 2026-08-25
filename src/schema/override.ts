@@ -53,6 +53,19 @@ export const TenantOverride = z
     tenant: z.string().min(1),
 
     /**
+     * Why this tenant differs, in prose, for the human who reviews the patch.
+     *
+     * The same argument that makes `Target.rationale` mandatory applies here: a
+     * patch that changes what automation does to a live banking system, with no
+     * statement of why, is unreviewable. A reader must be able to tell "this
+     * institution's panels are in Spanish" from "someone patched a step to make
+     * a failing run go green" without diffing against the base.
+     */
+    description: z.string().min(1).optional(),
+    /** Longer reviewer notes — scope, caveats, what was deliberately not patched. */
+    notes: z.array(z.string()).optional(),
+
+    /**
      * THE LOCALISATION ANSWER. Anchor literals translated for this tenant,
      * applied to every target in the capability. Keys are the base literals.
      */

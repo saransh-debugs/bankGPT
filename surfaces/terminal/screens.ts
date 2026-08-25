@@ -55,33 +55,103 @@ export const MEMBERS: Member[] = [
   { id: '55555', name: 'SLOWMAN, OTTO', status: 'ACTIVE', savingsAccount: 'SAV-0005555555', balance: '99.01', slowMs: 3000 },
 ];
 
-/** Member Services inquiry panel. `{}` markers are substituted before scanning. */
-const MBR001 = [
-  '================================================================================',
-  ' NORTHRIDGE CU             MEMBER SERVICES                        SCR MBR001     ',
-  '================================================================================',
-  '                                                                                ',
-  '   MEMBER ID . . . . [        ]                                                 ',
-  '                                                                                ',
-  '   NAME  . . . . . . ____________________                                       ',
-  '   STATUS  . . . . . _______                                                    ',
-  '   SAVINGS ACCT  . . ______________                                             ',
-  '   BALANCE . . . . . ____________                                               ',
-  '                                                                                ',
-  '                                                                                ',
-  '                                                                                ',
-  '                                                                                ',
-  '                                                                                ',
-  '                                                                                ',
-  '                                                                                ',
-  '                                                                                ',
-  '                                                                                ',
-  '                                                                                ',
-  '                                                                                ',
-  '                                                                                ',
-  ' F3=Exit   F5=Refresh   F12=Cancel                                              ',
-  ' MSG: ______________________________________________________________________   ',
-];
+/**
+ * TENANT BRANDING — two institutions running the same vendor product.
+ *
+ * This is the multi-tenant case the brief describes, reproduced honestly: same
+ * panel, same field layout, same host logic, different institution name and
+ * different caption language. A real 5250 shop does exactly this — the DDS
+ * layout is the vendor's, the text constants are the institution's — and it is
+ * why hundreds of credit unions can run one core with screens that do not match
+ * each other's word for word.
+ *
+ * It is also the thing that makes the lexicon demonstrable rather than
+ * asserted. The artifact stores "MEMBER ID"; Summit's panel says
+ * "ID DE MIEMBRO"; a per-tenant dictionary reconciles them at RESOLVE time,
+ * with no change to the artifact. Nothing keyed on selectors could do that,
+ * because there is no selector to translate.
+ */
+export interface Captions {
+  bank: string;
+  title: string;
+  memberId: string;
+  name: string;
+  status: string;
+  acct: string;
+  balance: string;
+}
+
+export const TENANT_CAPTIONS: Record<string, Captions> = {
+  northridge: {
+    bank: 'NORTHRIDGE CU',
+    title: 'MEMBER SERVICES',
+    memberId: 'MEMBER ID',
+    name: 'NAME',
+    status: 'STATUS',
+    acct: 'SAVINGS ACCT',
+    balance: 'BALANCE',
+  },
+  summit: {
+    bank: 'SUMMIT FCU',
+    title: 'SERVICIOS AL MIEMBRO',
+    memberId: 'ID DE MIEMBRO',
+    name: 'NOMBRE',
+    status: 'ESTADO',
+    acct: 'CTA AHORROS',
+    balance: 'SALDO',
+  },
+};
+
+/** Column the entry/display fields start at. Fixed by the panel layout. */
+const FIELD_COL = 21;
+const INDENT = 3;
+
+/**
+ * Dot leaders sized so every caption ends at the same column.
+ *
+ * Not decoration: a 5250 panel is designed this way so the operator's eye
+ * tracks from the caption to the field. Generating them keeps the layout
+ * correct when the captions change length — "ID DE MIEMBRO" is four characters
+ * longer than "MEMBER ID" and would otherwise push its field out of alignment.
+ */
+function leader(caption: string): string {
+  const gap = FIELD_COL - INDENT - caption.length;
+  if (gap < 2) throw new Error(`caption '${caption}' does not fit before column ${FIELD_COL}`);
+  return (' .'.repeat(Math.ceil((gap - 1) / 2)).slice(0, gap - 1) + ' ');
+}
+
+const pad80 = (s: string): string => s.slice(0, COLS).padEnd(COLS, ' ');
+
+/** Member Services inquiry panel, built for one tenant's caption set. */
+function buildMbr001(c: Captions): string[] {
+  const row = (caption: string, marker: string): string =>
+    pad80(' '.repeat(INDENT) + caption + leader(caption) + marker);
+
+  return [
+    '='.repeat(COLS),
+    pad80(` ${c.bank}`.padEnd(27) + c.title.padEnd(39) + 'SCR MBR001'),
+    '='.repeat(COLS),
+    pad80(''),
+    row(c.memberId, '[        ]'),
+    pad80(''),
+    row(c.name, '_'.repeat(20)),
+    row(c.status, '_'.repeat(7)),
+    row(c.acct, '_'.repeat(14)),
+    row(c.balance, '_'.repeat(12)),
+    ...Array.from({ length: 12 }, () => pad80('')),
+    pad80(' F3=Exit   F5=Refresh   F12=Cancel'),
+    pad80(' MSG: ' + '_'.repeat(74)),
+  ];
+}
+
+/**
+ * Which institution this host instance is branded for. Defaults to the tenant
+ * the capability was recorded against, so every existing run is unchanged.
+ */
+const TENANT = process.env.TERM_TENANT ?? 'northridge';
+const CAPTIONS: Captions = TENANT_CAPTIONS[TENANT] ?? (TENANT_CAPTIONS.northridge as Captions);
+
+const MBR001 = buildMbr001(CAPTIONS);
 
 /**
  * Sign-on panel. Swapped in when the session expires mid-flow, which is the

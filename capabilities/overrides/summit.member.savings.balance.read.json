@@ -1,0 +1,25 @@
+{
+  "capabilityId": "member.savings.balance.read",
+  "baseVersion": "1.0.0",
+  "tenant": "summit",
+  "approvalState": "approved",
+
+  "description": "Summit FCU runs the same vendor core as Northridge, branded for a Spanish-speaking membership. The FLOW is identical — same panel, same fields, same keys, same host logic — so this patches the captions and nothing else. The base capability is not re-recorded, not forked, and not modified.",
+
+  "lexicon": {
+    "MEMBER ID": "ID DE MIEMBRO",
+    "NAME": "NOMBRE",
+    "STATUS": "ESTADO",
+    "SAVINGS ACCT": "CTA AHORROS",
+    "BALANCE": "SALDO",
+    "MEMBER SERVICES": "SERVICIOS AL MIEMBRO"
+  },
+
+  "notes": [
+    "THIS IS THE PAYOFF OF ANCHOR-RELATION TARGETING, and it is the one thing in this submission that a role+name or selector-based artifact structurally cannot do.",
+    "Because a target names a VISIBLE LITERAL rather than an opaque handle, specialising a tenant is a dictionary. There is no selector to translate: '#member-id-input' means nothing in Spanish, and 'the textbox named MEMBER ID' has no name to translate on a surface that exposes none.",
+    "The lexicon is applied at RESOLVE time, inside the adapter, so the artifact on disk is byte-identical between tenants. Six entries replace what would otherwise be a second recording of every step.",
+    "Scope, stated honestly: this patches CAPTIONS. The host's message-line text ('INQUIRY COMPLETE', 'MEMBER NOT FOUND') is business output rather than a caption, so it is unchanged here — a tenant whose host also localises those would add `additionalOutcomes`, which the override schema carries for exactly that reason.",
+    "If a tenant ever needed to patch more than a small fraction of steps, that is the signal to fork rather than override. `npm run validate` computes that ratio and warns past the threshold in src/schema/override.ts."
+  ]
+}
