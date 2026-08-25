@@ -1,0 +1,326 @@
+{
+  "id": "member.savings.balance.read",
+  "version": "1.0.0",
+  "schemaVersion": "1.0",
+  "name": "Read a member's savings balance (web)",
+  "description": "Sign in to the Mifos X web app, open the member identified by their account number from the client list, and return their name, status, savings account number and current savings balance.",
+  "product": "openmf/web-app",
+  "productVersion": "dev",
+  "surface": "web",
+  "recordedForTenant": "default",
+  "approvalState": "approved",
+
+  "inputs": [
+    {
+      "name": "memberId",
+      "type": "string",
+      "required": true,
+      "description": "The member's account number as displayed in the client list, zero-padded.",
+      "example": "000000001"
+    }
+  ],
+
+  "outputs": [
+    { "name": "memberName", "type": "string", "from": "nameValue", "description": "Member's name as displayed." },
+    { "name": "status", "type": "string", "from": "statusValue", "description": "Account status, e.g. Active." },
+    { "name": "savingsAccount", "type": "string", "from": "acctValue", "description": "Savings account number." },
+    { "name": "savingsBalance", "type": "money", "from": "balanceValue", "description": "Current savings balance." }
+  ],
+
+  "steps": [
+    {
+      "id": "open-sign-in",
+      "action": "navigate",
+      "url": "{{env.WEB_APP_URL}}/#/login",
+      "reversibility": "safe",
+      "timeoutMs": 60000,
+      "checkpoint": {
+        "type": "present",
+        "target": {
+          "anchor": { "kind": "label", "text": "Username" },
+          "relation": "next-writable",
+          "rationale": "Assert the sign-on form actually rendered before typing. An Angular app serves its shell before its routes resolve, so a navigate that 'succeeded' can still be showing an empty page; anchoring on the field we are about to use is the narrowest proof that it is ready.",
+          "description": "Username field"
+        }
+      }
+    },
+    {
+      "id": "key-username",
+      "action": "fill",
+      "value": "{{env.FINERACT_USER}}",
+      "redact": true,
+      "reversibility": "safe",
+      "target": {
+        "anchor": { "kind": "label", "text": "Username" },
+        "relation": "next-writable",
+        "rationale": "Angular Material emits no `for` attribute; the caption lives in a <mat-label> inside the enclosing <mat-form-field>. The adapter treats that as an authored label association, so this resolves on the strongest rung of the ladder at confidence 1.0 rather than by scanning reading order. The same stored literal 'Username' would match a plain <label for> on a legacy page or a 'USERNAME' caption on a 5250 sign-on panel.",
+        "description": "Username field"
+      },
+      "checkpoint": {
+        "type": "present",
+        "target": {
+          "anchor": { "kind": "label", "text": "Password" },
+          "relation": "next-writable",
+          "rationale": "The username itself must not be echoed into a checkpoint: this step is marked redact, and asserting on the value would write the credential into the run log the assertion produces. Asserting that the form is still intact is the strongest check available that does not leak.",
+          "description": "Password field"
+        }
+      }
+    },
+    {
+      "id": "key-password",
+      "action": "fill",
+      "value": "{{env.FINERACT_PASSWORD}}",
+      "redact": true,
+      "reversibility": "safe",
+      "target": {
+        "anchor": { "kind": "label", "text": "Password" },
+        "relation": "next-writable",
+        "rationale": "Same label association as the username field. The value is resolved from the environment at replay time and never stored here; the artifact records the variable's name, not the secret.",
+        "description": "Password field"
+      },
+      "checkpoint": {
+        "type": "enabled",
+        "target": {
+          "anchor": { "kind": "self", "text": "Login" },
+          "relation": "is",
+          "rationale": "The form disables its submit control until both fields validate, so an enabled Login button is the application's own statement that it accepted the credentials' shape. Asserting the password's value is impossible by design and undesirable anyway.",
+          "description": "Login button"
+        }
+      }
+    },
+    {
+      "id": "submit-sign-in",
+      "action": "click",
+      "reversibility": "safe",
+      "timeoutMs": 45000,
+      "target": {
+        "anchor": { "kind": "self", "text": "Login" },
+        "relation": "is",
+        "rationale": "A 'self' anchor: the control carries its own visible literal, so the caption IS the control. Note the button is a <md-filled-button>, not a <button> — a locator model keyed on tag or on role='button' would miss it, while the visible word 'Login' is what an operator actually looks for and is what this anchors on.",
+        "description": "Login button"
+      },
+      "checkpoint": {
+        "type": "present",
+        "target": {
+          "anchor": { "kind": "self", "text": "Institution" },
+          "relation": "is",
+          "rationale": "Sign-in is confirmed by the arrival of authenticated navigation rather than by the absence of the login form: a failed sign-in leaves the form on screen with an error, which an absence check would misread as progress. 'Institution' is chosen over the welcome banner because the banner embeds the operator's username, and a checkpoint that quotes a credential writes it into every run log the assertion produces.",
+          "description": "Institution entry in the authenticated sidebar"
+        }
+      }
+    },
+    {
+      "id": "open-client-list",
+      "action": "navigate",
+      "url": "{{env.WEB_APP_URL}}/#/clients",
+      "reversibility": "safe",
+      "timeoutMs": 45000,
+      "checkpoint": {
+        "type": "present",
+        "target": {
+          "anchor": { "kind": "label", "text": "Account No." },
+          "relation": "is",
+          "rationale": "The list's own column heading proves the client table rendered, not merely that the route changed. Anchoring on the heading rather than on any particular member keeps the checkpoint independent of which member is being looked up. Declared as a 'label' anchor with an 'is' relation because the assertion is about the caption itself; a 'column-header' anchor would promise a column relation the schema rightly requires it to have.",
+          "description": "Account No. column heading"
+        }
+      }
+    },
+    {
+      "id": "open-member",
+      "action": "click",
+      "reversibility": "safe",
+      "timeoutMs": 45000,
+      "target": {
+        "anchor": { "kind": "param", "name": "memberId" },
+        "relation": "is",
+        "rationale": "A 'param' anchor matches the RUNTIME input value as a visible literal, so the row is identified by the member's own account number rather than by position. This matters here: the client list is a stack of <div class=\"list-row\"> with no table, no ARIA roles and no test ids, so there is no row structure to index into and 'same-row' would have nothing to resolve against. The number the operator is looking for is the one thing on the page that unambiguously identifies the right record, and if it appeared twice resolution would halt rather than open the wrong member.",
+        "description": "the member's account number in the client list"
+      },
+      "checkpoint": {
+        "type": "text",
+        "text": "{{inputs.memberId}}",
+        "match": "exact",
+        "target": {
+          "anchor": { "kind": "label", "text": "Account No." },
+          "relation": "next-value",
+          "rationale": "Confirms we landed on the RIGHT member's page, not merely on some member's page. A presence check on the detail layout would pass just as happily after clicking the wrong row, which is the failure this exists to catch.",
+          "description": "Account No. value on the client detail page"
+        }
+      }
+    },
+    {
+      "id": "read-name",
+      "action": "read",
+      "bindTo": "nameValue",
+      "reversibility": "safe",
+      "target": {
+        "anchor": { "kind": "label", "text": "Client Name" },
+        "relation": "next-value",
+        "rationale": "The page renders '<b>Client Name :</b> <b>Janet Okonkwo</b>' — no role, no name, no id, no test id. There is nothing here for a role-plus-accessible-name locator to bind to; what exists is a visible caption and a value sitting after it, which is exactly what anchor plus relation addresses. The stored literal omits the trailing colon because literal normalisation strips it, the same normalisation that strips a 5250 panel's dot leaders.",
+        "description": "Client Name value"
+      }
+    },
+    {
+      "id": "read-status",
+      "action": "read",
+      "bindTo": "statusValue",
+      "reversibility": "safe",
+      "target": {
+        "anchor": { "kind": "label", "text": "Activation Date" },
+        "relation": "next-value",
+        "rationale": "This surface states membership standing as an activation date in the detail table rather than as a status word, so the capability reads what the product actually renders instead of inventing a field to match the terminal's. The output contract is the same; the anchor is the one this surface offers.",
+        "description": "Activation Date value"
+      }
+    },
+    {
+      "id": "read-account",
+      "action": "read",
+      "bindTo": "acctValue",
+      "reversibility": "safe",
+      "target": {
+        "anchor": { "kind": "label", "text": "Account No." },
+        "relation": "next-value",
+        "rationale": "The same stored literal 'Account No.' that the checkpoint above uses. Reading it explicitly rather than reusing the input value means the output reports what the page says, so a mismatch between the two is detectable instead of assumed away.",
+        "description": "Account No. value"
+      }
+    },
+    {
+      "id": "read-balance",
+      "action": "read",
+      "bindTo": "balanceValue",
+      "reversibility": "safe",
+      "target": {
+        "anchor": { "kind": "label", "text": "Total Savings" },
+        "relation": "next-value",
+        "rationale": "The value this capability exists to return. Anchored on the caption beside the figure rather than on its position, because a summary tile's position shifts with the number of tiles while its caption does not. Identical anchor-and-relation shape to the terminal capability's BALANCE step, resolved by a completely different perception layer.",
+        "description": "Total Savings value"
+      }
+    }
+  ],
+
+  "successCondition": {
+    "type": "all",
+    "of": [
+      {
+        "type": "text",
+        "text": "{{inputs.memberId}}",
+        "match": "exact",
+        "target": {
+          "anchor": { "kind": "label", "text": "Account No." },
+          "relation": "next-value",
+          "rationale": "Success is defined as being on the requested member's record. Asserted again at the end so the result reflects what the application shows, not merely that our steps ran without throwing.",
+          "description": "Account No. value"
+        }
+      },
+      {
+        "type": "text",
+        "text": "[0-9]",
+        "match": "regex",
+        "target": {
+          "anchor": { "kind": "label", "text": "Total Savings" },
+          "relation": "next-value",
+          "rationale": "A balance element that resolves but renders blank means the summary loaded without data — an Angular tile is present in the DOM before its HTTP call returns. Requiring at least one digit distinguishes 'read an empty tile' from 'read a value', which a presence check alone cannot.",
+          "description": "Total Savings value"
+        }
+      }
+    ]
+  },
+
+  "outcomes": [
+    {
+      "code": "MEMBER_NOT_FOUND",
+      "description": "No member in the client list carries the supplied account number. A legitimate answer the caller needs, not a failure.",
+      "terminal": true,
+      "afterStep": "open-member",
+      "when": {
+        "type": "absent",
+        "target": {
+          "anchor": { "kind": "param", "name": "memberId" },
+          "relation": "is",
+          "rationale": "Declared in advance and evaluated on the client list itself: if the account number is not present among the rendered rows, the member does not exist as far as this flow is concerned, and the caller gets a machine-readable code instead of an unresolved-anchor failure it would have to interpret.",
+          "description": "the member's account number in the client list"
+        }
+      }
+    },
+    {
+      "code": "NOT_AUTHORIZED",
+      "description": "The signed-in user's role does not permit reading savings accounts. Fineract enforces this backend-side and the app surfaces its error.",
+      "terminal": true,
+      "afterStep": "open-member",
+      "when": {
+        "type": "text",
+        "text": "not permitted|NotAuthorized|403",
+        "match": "regex",
+        "target": {
+          "anchor": { "kind": "landmark", "text": "Error" },
+          "relation": "next-value",
+          "rationale": "An entitlement refusal is a real answer about permissions, distinct from the automation being broken. The seeded teller_readonly role lacks READ_SAVINGSACCOUNT, so this condition is provoked by the product's own RBAC rather than simulated.",
+          "description": "error banner text"
+        }
+      }
+    },
+    {
+      "code": "SESSION_EXPIRED",
+      "description": "The app's idle timeout elapsed mid-flow and it returned to the sign-on form.",
+      "terminal": true,
+      "afterStep": "open-member",
+      "when": {
+        "type": "present",
+        "target": {
+          "anchor": { "kind": "self", "text": "Login" },
+          "relation": "is",
+          "rationale": "Detected by the arrival of a DIFFERENT screen — the sign-on form — rather than by the absence of the expected one, which is the more specific signal. MIFOS_SESSION_IDLE_TIMEOUT makes this reproducible without injecting anything.",
+          "description": "Login button on the sign-on form"
+        }
+      }
+    }
+  ],
+
+  "recoveries": [
+    {
+      "id": "dismiss-authorised-use-warning",
+      "description": "The app raises an 'Authorized use only' dialog on first sign-in. It is modal and blocks every subsequent click.",
+      "maxAttempts": 1,
+      "when": {
+        "type": "present",
+        "target": {
+          "anchor": { "kind": "landmark", "text": "Warning" },
+          "relation": "is",
+          "rationale": "A known, named interstitial belonging to the product, not an error. It is declared and dismissed rather than improvised around, so the run reports 'a recovery fired' instead of silently clicking through something unexpected.",
+          "description": "Authorized-use warning dialog"
+        }
+      },
+      "then": [
+        {
+          "id": "close-warning",
+          "action": "click",
+          "reversibility": "safe",
+          "target": {
+            "anchor": { "kind": "self", "text": "Close" },
+            "relation": "is",
+            "rationale": "The dialog's own dismiss control. Bounded to a single attempt: if the dialog does not go away, that is a genuine blocker for a human rather than something to retry.",
+            "description": "Close button on the warning dialog"
+          },
+          "checkpoint": {
+            "type": "absent",
+            "target": {
+              "anchor": { "kind": "landmark", "text": "Warning" },
+              "relation": "is",
+              "rationale": "Assert the dialog actually closed. A recovery that reports success without verifying it is worse than no recovery, because the next step then fails somewhere unrelated.",
+              "description": "Authorized-use warning dialog"
+            }
+          }
+        }
+      ]
+    }
+  ],
+
+  "maxReversibility": "safe",
+
+  "metadata": {
+    "recordedAt": "2026-08-23T00:00:00.000Z",
+    "recordedBy": "hand-authored",
+    "goalPrompt": "look up member 000000001 and read their current savings balance",
+    "discoveryEvidence": "evidence/README.md#hand-authored-fixture"
+  }
+}

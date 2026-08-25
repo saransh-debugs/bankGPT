@@ -252,10 +252,10 @@ async function main(): Promise<void> {
     // not activated, or activated with no deposit — and silently skipping that
     // makes fixtures/seeded.json claim a balance the instance does not have,
     // which would then be baked into a capability's expected output.
-    const accts = await api<{ savingsAccounts?: Array<{ id: number; accountNo: string; status: { id: number } }> }>(
-      'GET',
-      `/clients/${clientId}/accounts`,
-    ).catch(() => ({}));
+    type Accounts = { savingsAccounts?: Array<{ id: number; accountNo: string; status: { id: number } }> };
+    const accts = await api<Accounts>('GET', `/clients/${clientId}/accounts`).catch(
+      (): Accounts => ({}),
+    );
 
     let savingsId = accts.savingsAccounts?.[0]?.id;
     if (savingsId === undefined) {
