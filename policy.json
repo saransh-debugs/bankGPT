@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "1.0",
+  "description": "Allowlist enforced inside SurfaceAdapter.act(), below the model. A discovery agent that has been talked into an off-policy action still cannot perform one, because the refusal happens at the point of action with no model in the path.",
+
+  "surfaces": {
+    "web": {
+      "allowedOrigins": ["http://localhost:4200", "https://localhost:8443"],
+      "allowedActions": ["navigate", "click", "fill", "select", "press", "wait"],
+      "credentialEnvVars": ["FINERACT_USER", "FINERACT_PASSWORD"],
+      "comment": "Only the local demo stack. Any other origin is a hard deny, including one reached by a redirect, because the check runs on the URL actually being navigated to. credentialEnvVars lists the NAMES a discovery agent may reference as {{env.NAME}} for sign-in — names are configuration, values are not, and an agent told neither will invent a name like USERNAME and stall."
+    },
+    "terminal": {
+      "allowedActions": ["fill", "click", "press", "wait"],
+      "allowedKeys": ["Enter", "Tab", "F3", "F5", "F12"],
+      "comment": "A character grid has no origins. What it does have is AID keys, and those are the entire action surface of a block-mode host — an unlisted key is refused rather than transmitted."
+    }
+  },
+
+  "redaction": {
+    "comment": "Applied to everything written to disk: evidence, page dumps, action transcripts, discovery logs. Secrets are removed by VALUE as well as by pattern, because the reliable way to keep a credential out of a screenshot text dump is to know what it is.",
+    "secretEnvVars": [
+      "FINERACT_PASSWORD",
+      "FINERACT_LIMITED_PASSWORD",
+      "ANTHROPIC_API_KEY"
+    ],
+    "patterns": [
+      { "name": "us-ssn", "regex": "\\b\\d{3}-\\d{2}-\\d{4}\\b" },
+      { "name": "pan", "regex": "\\b(?:\\d[ -]?){13,19}\\b" },
+      { "name": "bearer-token", "regex": "(?i)\\bbearer\\s+[A-Za-z0-9._~+/-]{12,}=*" },
+      { "name": "basic-auth", "regex": "(?i)\\bbasic\\s+[A-Za-z0-9+/]{12,}=*" },
+      { "name": "anthropic-key", "regex": "sk-ant-[A-Za-z0-9_-]{8,}" },
+      { "name": "jwt", "regex": "\\beyJ[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}" },
+      { "name": "password-field", "regex": "(?i)\\b(password|passwd|pwd|secret|token|apikey|api_key)\\b\\s*[:=]\\s*\\S+" }
+    ]
+  }
+}

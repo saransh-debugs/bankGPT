@@ -73,6 +73,8 @@ export interface TerminalAdapterOptions {
   gate?: PolicyGate;
   evidenceDir?: string;
   sessionId?: string;
+  /** Applied to persisted evidence. Injected so the adapter owes nothing to a policy module. */
+  redact?: (s: string) => string;
 }
 
 export class TerminalAdapter implements SurfaceAdapter {
@@ -85,6 +87,7 @@ export class TerminalAdapter implements SurfaceAdapter {
   private readonly gate: PolicyGate | undefined;
   private readonly evidenceDir: string;
   private readonly sessionId: string;
+  private readonly redact: (s: string) => string;
   /** Full protocol transcript. Committed as evidence; also the state-delta source. */
   private transcript: string[] = [];
   private leaseHeld = false;
@@ -93,6 +96,7 @@ export class TerminalAdapter implements SurfaceAdapter {
     this.gate = opts.gate;
     this.evidenceDir = opts.evidenceDir ?? 'evidence/scratch';
     this.sessionId = opts.sessionId ?? `term-${Math.random().toString(36).slice(2, 10)}`;
+    this.redact = opts.redact ?? ((s) => s);
   }
 
   // -------------------------------------------------------------------------
@@ -508,8 +512,8 @@ export class TerminalAdapter implements SurfaceAdapter {
     // A character-plane dump is BETTER evidence than a screenshot here: it is
     // text, so two states diff, which is what makes a state delta after a human
     // takeover a literal diff rather than an eyeball comparison of two images.
-    await writeFile(planePath, plane + '\n', 'utf8');
-    await writeFile(transcriptPath, this.transcript.join('\n') + '\n', 'utf8');
+    await writeFile(planePath, this.redact(plane) + '\n', 'utf8');
+    await writeFile(transcriptPath, this.redact(this.transcript.join('\n')) + '\n', 'utf8');
     return { primaryPath: planePath, extraPaths: [transcriptPath] };
   }
 
@@ -522,7 +526,13 @@ export class TerminalAdapter implements SurfaceAdapter {
   async pause(): Promise<SessionHandle> {
     const snapshotText = this.lastScreen?.plane.join('\n') ?? '';
     this.leaseHeld = true;
-    return { sessionId: this.sessionId, pausedAt: new Date().toISOString(), snapshotText };
+    // Redacted here too: the handle's snapshot is what an operator is shown in
+    // an intervention request, and that request is written to disk.
+    return {
+      sessionId: this.sessionId,
+      pausedAt: new Date().toISOString(),
+      snapshotText: this.redact(snapshotText),
+    };
   }
 
   async resume(handle: SessionHandle): Promise<void> {
